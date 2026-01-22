@@ -54,8 +54,6 @@ components:
       properties:
         username:
           type: string
-        email:
-          type: string
         password:
           type: string
     UserLogin:
@@ -74,8 +72,6 @@ components:
             id:
               type: string
             username:
-              type: string
-            email:
               type: string
             token:
               type: string
