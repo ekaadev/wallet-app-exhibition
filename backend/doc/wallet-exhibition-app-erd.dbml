@@ -1,0 +1,63 @@
+Table users {
+  id integer [primary key]
+  username varchar [unique]
+  password varchar
+  role roles
+  created_at timestamp
+  updated_at timestamp
+}
+
+Enum roles {
+  super_admin
+  admin
+  user
+}
+
+Table wallets {
+  id integer [primary key]
+  user_id integer [ref: - users.id]
+  balance decimal
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table transactions {
+  id integer [primary key]
+  type type_transactions
+  from_wallet_id integer [ref: > wallets.id, null]
+  to_walllet_id integer [ref: > wallets.id]
+  performed_by_user_id integer [ref: > users.id]
+  status status_transactions
+  description varchar
+  created_at timestamp
+  updated_at timestamp
+}
+
+Enum type_transactions {
+  top_up
+  transfer
+  withdraw
+}
+
+Enum status_transactions {
+  pending
+  completed
+  failed
+}
+
+
+Table wallet_mutations {
+  id integer [primary key]
+  wallet_id integer [ref: > wallets.id]
+  transaction_id integer [ref: > transactions.id]
+  type type_mutations
+  amount decimal
+  balance_before decimal
+  balance_after decimal
+  created_at timestamp
+}
+
+Enum type_mutations {
+  debit
+  credit
+}

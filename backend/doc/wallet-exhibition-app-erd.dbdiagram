@@ -1,0 +1,35 @@
+{
+  "version": "1.0.0",
+  "darkMode": true,
+  "gridEnabling": false,
+  "detailLevel": "All",
+  "tablePositions": [
+    {
+      "name": "users",
+      "schemaName": "public",
+      "x": -22.190168551439967,
+      "y": -327.46150438927316
+    },
+    {
+      "name": "wallets",
+      "schemaName": "public",
+      "x": 596.4999320182594,
+      "y": -327.46150438927316
+    },
+    {
+      "name": "transactions",
+      "schemaName": "public",
+      "x": -22.190168551439967,
+      "y": 11.999999999999886
+    },
+    {
+      "name": "wallet_mutations",
+      "schemaName": "public",
+      "x": 581.8881039737194,
+      "y": 48.63253644488532
+    }
+  ],
+  "tableGroupCollapseStates": [],
+  "stickyNoteLayouts": [],
+  "referencePaths": []
+}
