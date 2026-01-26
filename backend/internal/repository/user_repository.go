@@ -19,9 +19,21 @@ func NewUserRepository(log *logrus.Logger) *UserRepository {
 	}
 }
 
+// FindByUsername finds a user by username.
 func (r *UserRepository) FindByUsername(db *gorm.DB, username string) (*entity.User, error) {
 	var user entity.User
 	err := db.Where("username = ?", username).First(&user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+
+	return &user, err
+}
+
+// FindByID finds a user by ID.
+func (r *UserRepository) FindByID(db *gorm.DB, id uint) (*entity.User, error) {
+	var user entity.User
+	err := db.Where("id = ?", id).First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}

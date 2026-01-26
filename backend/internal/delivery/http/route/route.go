@@ -41,6 +41,9 @@ func (cr *ConfigRoute) SetupAuthRoutes() {
 	// Protected routes
 	auth := cr.App.Group("", cr.AuthMiddleware)
 
+	// User routes (authenticated)
+	auth.Get("/users/me", cr.UserController.GetProfile)
+
 	// Wallet routes
 	auth.Get("/wallets/me", cr.WalletController.GetMyWallet)
 

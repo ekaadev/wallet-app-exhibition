@@ -30,6 +30,14 @@ func (m *MockUserUseCase) Login(ctx context.Context, request *model.UserLoginReq
 	return args.Get(0).(*model.UserResponse), args.Error(1)
 }
 
+func (m *MockUserUseCase) GetProfile(ctx context.Context, userID uint) (*model.UserProfileResponse, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.UserProfileResponse), args.Error(1)
+}
+
 // MockWalletUseCase is a mock implementation of WalletUseCaseInterface.
 type MockWalletUseCase struct {
 	mock.Mock

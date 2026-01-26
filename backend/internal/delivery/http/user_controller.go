@@ -1,6 +1,7 @@
 package http
 
 import (
+	"backend/internal/delivery/http/middleware"
 	"backend/internal/model"
 	"backend/internal/usecase"
 
@@ -52,6 +53,21 @@ func (uc *UserController) Login(ctx *fiber.Ctx) error {
 	response, err := uc.UserUseCase.Login(ctx.UserContext(), request)
 	if err != nil {
 		uc.Log.Warnf("UserUseCase.Login error: %v", err)
+		return err
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"data": response,
+	})
+}
+
+// GetProfile returns the authenticated user's profile with wallet information.
+func (uc *UserController) GetProfile(ctx *fiber.Ctx) error {
+	auth := middleware.GetUser(ctx)
+
+	response, err := uc.UserUseCase.GetProfile(ctx.UserContext(), *auth.UserID)
+	if err != nil {
+		uc.Log.Warnf("UserUseCase.GetProfile error: %v", err)
 		return err
 	}
 

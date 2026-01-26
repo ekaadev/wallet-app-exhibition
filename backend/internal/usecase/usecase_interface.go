@@ -12,6 +12,7 @@ import (
 type UserUseCaseInterface interface {
 	Create(ctx context.Context, request *model.UserRegistrationRequest) (*model.UserResponse, error)
 	Login(ctx context.Context, request *model.UserLoginRequest) (*model.UserResponse, error)
+	GetProfile(ctx context.Context, userID uint) (*model.UserProfileResponse, error)
 }
 
 // WalletUseCaseInterface defines the interface for wallet-related use cases.

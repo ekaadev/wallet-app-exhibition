@@ -147,3 +147,39 @@ func (uc *UserUseCase) Login(ctx context.Context, request *model.UserLoginReques
 
 	return converter.UserToUserResponse(user, token), nil
 }
+
+// GetProfile retrieves user profile with wallet information.
+func (uc *UserUseCase) GetProfile(ctx context.Context, userID uint) (*model.UserProfileResponse, error) {
+	// Find user by ID
+	user, err := uc.UserRepository.FindByID(uc.DB.WithContext(ctx), userID)
+	if err != nil {
+		uc.Log.Errorf("FindByID error: %v", err)
+		return nil, fiber.ErrInternalServerError
+	}
+	if user == nil {
+		uc.Log.Warnf("User not found: %d", userID)
+		return nil, fiber.NewError(fiber.StatusNotFound, "User not found")
+	}
+
+	// Find wallet for user
+	wallet, err := uc.WalletRepository.FindByUserID(uc.DB.WithContext(ctx), userID)
+	if err != nil {
+		uc.Log.Errorf("FindByUserID error: %v", err)
+		return nil, fiber.ErrInternalServerError
+	}
+
+	response := &model.UserProfileResponse{
+		ID:       user.ID,
+		Username: user.Username,
+		Role:     user.Role,
+	}
+
+	if wallet != nil {
+		response.Wallet = &model.UserProfileWalletInfo{
+			ID:      wallet.ID,
+			Balance: wallet.Balance,
+		}
+	}
+
+	return response, nil
+}
