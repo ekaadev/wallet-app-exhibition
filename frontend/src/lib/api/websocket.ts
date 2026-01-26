@@ -1,0 +1,143 @@
+// WebSocket service untuk komunikasi real-time
+
+import { user, type AuthUser } from '$lib/stores/auth';
+import { get } from 'svelte/store';
+import { toast } from 'svelte-sonner';
+
+const WS_URL = 'ws://localhost:3000/ws';
+let ws: WebSocket | null = null;
+let reconnectValid = true;
+let reconnectInterval = 5000;
+
+// Tipe payload dari backend
+interface WebsocketMessage {
+    type: 'transaction' | 'wallet_update';
+    payload: any;
+}
+
+interface WalletUpdatePayload {
+    wallet_id: number;
+    new_balance: string;
+    mutation_type: 'credit' | 'debit';
+    amount: string;
+}
+
+interface TransactionPayload {
+    transaction_id: number;
+    transaction_type: 'top_up' | 'transfer';
+    amount: string;
+    description: string;
+    from_user_id?: number;
+    to_user_id: number;
+}
+
+export function connectWebSocket(token: string) {
+    if (ws) {
+        ws.close();
+    }
+
+    reconnectValid = true;
+    const url = `${WS_URL}?token=${token}`;
+    
+    try {
+        ws = new WebSocket(url);
+
+        ws.onopen = () => {
+            console.log('WebSocket connected');
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const message: WebsocketMessage = JSON.parse(event.data);
+                handleMessage(message);
+            } catch (err) {
+                console.error('Error parsing websocket message:', err);
+            }
+        };
+
+        ws.onclose = () => {
+            console.log('WebSocket disconnected');
+            if (reconnectValid) {
+                console.log('Reconnecting in 5s...');
+                setTimeout(() => {
+                    if (reconnectValid) connectWebSocket(token);
+                }, reconnectInterval);
+            }
+        };
+
+        ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            ws?.close();
+        };
+
+    } catch (err) {
+        console.error('Failed to connect websocket:', err);
+    }
+}
+
+export function disconnectWebSocket() {
+    reconnectValid = false;
+    if (ws) {
+        ws.close();
+        ws = null;
+    }
+}
+
+function handleMessage(message: WebsocketMessage) {
+    console.log('Received WS message:', message);
+
+    switch (message.type) {
+        case 'wallet_update':
+            handleWalletUpdate(message.payload);
+            break;
+        case 'transaction':
+            handleTransaction(message.payload);
+            break;
+    }
+}
+
+function handleWalletUpdate(payload: WalletUpdatePayload) {
+    // Update store saldo user secara real-time
+    const currentUser = get(user);
+    
+    if (currentUser && currentUser.wallet && currentUser.wallet.id === payload.wallet_id) {
+        user.update((u) => {
+            if (u && u.wallet) {
+                return {
+                    ...u,
+                    wallet: {
+                        ...u.wallet,
+                        balance: payload.new_balance
+                    }
+                };
+            }
+            return u;
+        });
+
+        // Tampilkan toast
+        const type = payload.mutation_type === 'credit' ? 'masuk' : 'keluar';
+        const amount = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(Number(payload.amount));
+        
+        toast.info(`Saldo terupdate: Uang ${type} ${amount}`, {
+            amount: payload.new_balance
+        } as any);
+        console.log(`Saldo terupdate: ${payload.new_balance}`);
+    }
+}
+
+function handleTransaction(payload: TransactionPayload) {
+    // Bisa digunakan untuk menampilkan notifikasi popup transaksi baru
+    const type = payload.transaction_type === 'top_up' ? 'Top Up' : 'Transfer';
+    const amount = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(Number(payload.amount));
+    
+    // Tampilkan notifikasi browser native jika didukung/diizinkan
+    if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Transaksi Baru', {
+            body: `${type} berhasil sebesar ${amount}`
+        });
+    } else {
+        console.log(`Notifikasi Transaksi: ${type} ${amount}`);
+        // Tampilkan toast juga untuk transaksi
+        toast.success(`Transaksi ${type} berhasil: ${amount}`);
+    }
+}
