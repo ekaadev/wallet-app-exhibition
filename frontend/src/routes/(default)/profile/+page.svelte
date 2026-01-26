@@ -1,147 +1,204 @@
-<script>
-	import { Copy, ChevronRight, LogOut, ShieldCheck, User } from 'lucide-svelte';
+<script lang="ts">
+    import { goto } from '$app/navigation';
+    import { onMount } from 'svelte';
+    import { Copy, LogOut } from 'lucide-svelte';
+    import { user, loading, error, loadProfile, logout, isAuthenticated, token } from '$lib/stores/auth';
 
-	// Data Mockup
-	const profileData = {
-		username: 'Yohanes Eka Putra',
-		email: 'ekaaputra223@gmail.com', // Saya tambah email biar header lebih cantik
-		role: 'Super Admin',
-		wallet_id: '1017 1913 7671',
-		created_at: '20 Jan 2024',
-		status: 'Aktif'
-	};
+    // Load profile saat mount
+    onMount(async () => {
+        // Redirect jika tidak terautentikasi
+        if (!$token) {
+            goto('/login');
+            return;
+        }
 
-	/**
-	 * @param {string} text
-	 */
-	function copyToClipboard(text) {
-		navigator.clipboard.writeText(text);
-		// Bisa tambah toast notification disini
-		alert('ID disalin!');
-	}
+        // Load profile dari API
+        const success = await loadProfile();
+        if (!success) {
+            // Jika gagal load profile, kemungkinan token expired
+            logout();
+            goto('/login');
+        }
+    });
+
+    // Fungsi untuk copy ke clipboard
+    function copyToClipboard(text: string) {
+        navigator.clipboard.writeText(text);
+        alert('ID disalin!');
+    }
+
+    // Format tanggal bergabung (dari created_at jika ada, atau gunakan default)
+    function formatDate(date?: string): string {
+        if (!date) return '-';
+        return new Date(date).toLocaleDateString('id-ID', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric'
+        });
+    }
+
+    // Handle logout
+    function handleLogout() {
+        logout();
+        goto('/login');
+    }
+
+    // Format role untuk display
+    function formatRole(role?: string): string {
+        if (!role) return '-';
+        return role.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+    }
 </script>
 
 <div class="profile-container">
-	<div class="ios-list-group">
-		<div class="list-row">
-			<span class="row-label">Wallet ID</span>
-			<button class="row-value copy-btn" onclick={() => copyToClipboard(profileData.wallet_id)}>
-				{profileData.wallet_id}
-				<Copy size={14} class="icon-copy" />
-			</button>
-		</div>
+    {#if $loading}
+        <div class="loading-state">
+            <p>Memuat profil...</p>
+        </div>
+    {:else if $error}
+        <div class="error-state">
+            <p>{$error}</p>
+            <button onclick={() => goto('/login')}>Kembali ke Login</button>
+        </div>
+    {:else if $user}
+        <div class="ios-list-group">
+            <div class="list-row">
+                <span class="row-label">Username</span>
+                <span class="row-value">{$user.username}</span>
+            </div>
 
-		<div class="list-row">
-			<span class="row-label">Role</span>
-			<span class="row-value">{profileData.role}</span>
-		</div>
+            {#if $user.wallet}
+                <div class="list-row">
+                    <span class="row-label">Wallet ID</span>
+                    <button class="row-value copy-btn" onclick={() => copyToClipboard(String($user?.wallet?.id || ''))}>
+                        {$user.wallet.id}
+                        <Copy size={14} class="icon-copy" />
+                    </button>
+                </div>
 
-		<div class="list-row">
-			<span class="row-label">Status Akun</span>
-			<span class="row-value status-active">{profileData.status}</span>
-		</div>
+                <div class="list-row">
+                    <span class="row-label">Saldo</span>
+                    <span class="row-value">Rp {Number($user.wallet.balance).toLocaleString('id-ID')}</span>
+                </div>
+            {/if}
 
-		<div class="list-row">
-			<span class="row-label">Bergabung</span>
-			<span class="row-value">{profileData.created_at}</span>
-		</div>
-	</div>
+            <div class="list-row">
+                <span class="row-label">Role</span>
+                <span class="row-value">{formatRole($user.role)}</span>
+            </div>
 
-	<div class="ios-list-group action-group">
-		<button class="list-row action">
-			<div class="row-left">
-				<LogOut size={18} class="action-icon logout-icon" />
-				<span class="row-label logout-text">Keluar</span>
-			</div>
-		</button>
-	</div>
+            <div class="list-row">
+                <span class="row-label">Status Akun</span>
+                <span class="row-value status-active">Aktif</span>
+            </div>
+        </div>
+
+        <div class="ios-list-group action-group">
+            <button class="list-row action" onclick={handleLogout}>
+                <div class="row-left">
+                    <LogOut size={18} class="action-icon logout-icon" />
+                    <span class="row-label logout-text">Keluar</span>
+                </div>
+            </button>
+        </div>
+    {/if}
 </div>
 
 <style>
-	:global(body) {
-		background-color: #ffffff;
-		font-family:
-			-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; /* Font System ala Apple */
-	}
+    :global(body) {
+        background-color: #ffffff;
+        font-family:
+            -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
 
-	.profile-container {
-		padding: 2rem 1.5rem 6rem 1.5rem;
-		max-width: 480px;
-		margin: 0 auto;
-	}
+    .profile-container {
+        padding: 2rem 1.5rem 6rem 1.5rem;
+        max-width: 480px;
+        margin: 0 auto;
+    }
 
-	/* --- IOS LIST GROUP STYLE --- */
-	.ios-list-group {
-		background-color: #f2f4f6; /* Warna latar kartu abu-abu muda ala referensi */
-		border-radius: 12px;
-		overflow: hidden; /* Agar border-radius memotong child elemen */
-		margin-bottom: 1.5rem;
-	}
+    .loading-state,
+    .error-state {
+        text-align: center;
+        padding: 2rem;
+    }
 
-	.list-row {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: 1rem 1rem;
-		background: none;
-		border: none;
-		width: 100%;
-		text-align: left;
+    .error-state button {
+        margin-top: 1rem;
+        padding: 0.5rem 1rem;
+        background: #007aff;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+    }
 
-		/* Garis pemisah antar item */
-		border-bottom: 1px solid #e5e5ea;
-	}
+    .ios-list-group {
+        background-color: #f2f4f6;
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+    }
 
-	/* Menghilangkan garis di item terakhir */
-	.list-row:last-child {
-		border-bottom: none;
-	}
+    .list-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1rem;
+        background: none;
+        border: none;
+        width: 100%;
+        text-align: left;
+        border-bottom: 1px solid #e5e5ea;
+    }
 
-	.row-label {
-		font-size: 0.95rem;
-		font-weight: 600;
-		color: #1c1c1e; /* Hampir hitam */
-	}
+    .list-row:last-child {
+        border-bottom: none;
+    }
 
-	.row-value {
-		font-size: 0.95rem;
-		color: #636366; /* Abu-abu teks sekunder */
-		font-family: inherit; /* Untuk button */
-	}
+    .row-label {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #1c1c1e;
+    }
 
-	/* --- SPECIFIC STYLES --- */
-	.copy-btn {
-		background: none;
-		border: none;
-		cursor: pointer;
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		padding: 0;
-	}
+    .row-value {
+        font-size: 0.95rem;
+        color: #636366;
+        font-family: inherit;
+    }
 
-	.status-active {
-		color: #34c759; /* Apple Green */
-		font-weight: 600;
-	}
+    .copy-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0;
+    }
 
-	/* Action Rows */
-	.list-row.action {
-		cursor: pointer;
-		transition: background-color 0.2s;
-	}
+    .status-active {
+        color: #34c759;
+        font-weight: 600;
+    }
 
-	.list-row.action:active {
-		background-color: #e5e5ea; /* Efek tekan */
-	}
+    .list-row.action {
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
 
-	.row-left {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-	}
+    .list-row.action:active {
+        background-color: #e5e5ea;
+    }
 
-	.logout-text {
-		color: #ff3b30; /* Apple Red */
-	}
+    .row-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .logout-text {
+        color: #ff3b30;
+    }
 </style>
