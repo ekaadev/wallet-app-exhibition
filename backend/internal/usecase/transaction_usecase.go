@@ -238,9 +238,13 @@ func (uc *TransactionUseCase) Transfer(ctx context.Context, auth *model.Auth, re
 		fromWallet = secondWallet
 	}
 
-	// Check sufficient balance
-	if fromWallet.Balance.LessThan(request.Amount) {
-		return nil, fiber.NewError(fiber.StatusBadRequest, "Insufficient balance")
+	isSuperAdmin := auth.Role == "super_admin"
+
+	// Check sufficient balance (Skip for Super Admin)
+	if !isSuperAdmin {
+		if fromWallet.Balance.LessThan(request.Amount) {
+			return nil, fiber.NewError(fiber.StatusBadRequest, "Insufficient balance")
+		}
 	}
 
 	// Create transaction record
@@ -260,22 +264,34 @@ func (uc *TransactionUseCase) Transfer(ctx context.Context, auth *model.Auth, re
 		return nil, fiber.ErrInternalServerError
 	}
 
-	// Create debit mutation for sender
-	fromBalanceBefore := fromWallet.Balance
-	fromBalanceAfter := fromWallet.Balance.Sub(request.Amount)
+	// Variables for notification
+	var fromBalanceAfter decimal.Decimal = fromWallet.Balance
+	var debitMutation *entity.WalletMutation
 
-	debitMutation := &entity.WalletMutation{
-		WalletID:      fromWallet.ID,
-		TransactionID: transaction.ID,
-		Type:          entity.MutationTypeDebit,
-		Amount:        request.Amount,
-		BalanceBefore: fromBalanceBefore,
-		BalanceAfter:  fromBalanceAfter,
-	}
+	// Create debit mutation & update balance for sender (Skip for Super Admin)
+	if !isSuperAdmin {
+		fromBalanceBefore := fromWallet.Balance
+		fromBalanceAfter = fromWallet.Balance.Sub(request.Amount)
 
-	if err := uc.WalletMutationRepository.Create(tx, debitMutation); err != nil {
-		uc.Log.Errorf("Debit mutation creation error: %v", err)
-		return nil, fiber.ErrInternalServerError
+		debitMutation = &entity.WalletMutation{
+			WalletID:      fromWallet.ID,
+			TransactionID: transaction.ID,
+			Type:          entity.MutationTypeDebit,
+			Amount:        request.Amount,
+			BalanceBefore: fromBalanceBefore,
+			BalanceAfter:  fromBalanceAfter,
+		}
+
+		if err := uc.WalletMutationRepository.Create(tx, debitMutation); err != nil {
+			uc.Log.Errorf("Debit mutation creation error: %v", err)
+			return nil, fiber.ErrInternalServerError
+		}
+
+		// Update sender wallet balance
+		if err := uc.WalletRepository.UpdateBalance(tx, fromWallet.ID, fromBalanceAfter); err != nil {
+			uc.Log.Errorf("UpdateBalance error for sender: %v", err)
+			return nil, fiber.ErrInternalServerError
+		}
 	}
 
 	// Create credit mutation for recipient
@@ -293,12 +309,6 @@ func (uc *TransactionUseCase) Transfer(ctx context.Context, auth *model.Auth, re
 
 	if err := uc.WalletMutationRepository.Create(tx, creditMutation); err != nil {
 		uc.Log.Errorf("Credit mutation creation error: %v", err)
-		return nil, fiber.ErrInternalServerError
-	}
-
-	// Update sender wallet balance
-	if err := uc.WalletRepository.UpdateBalance(tx, fromWallet.ID, fromBalanceAfter); err != nil {
-		uc.Log.Errorf("UpdateBalance error for sender: %v", err)
 		return nil, fiber.ErrInternalServerError
 	}
 
@@ -330,16 +340,18 @@ func (uc *TransactionUseCase) Transfer(ctx context.Context, auth *model.Auth, re
 			}
 			uc.Notifier.NotifyTransaction(*auth.UserID, senderNotification)
 
-			// Wallet update for sender
-			senderWalletNotification := &model.WalletUpdateNotification{
-				WalletID:      fromWallet.ID,
-				NewBalance:    fromBalanceAfter.String(),
-				MutationType:  string(entity.MutationTypeDebit),
-				MutationID:    debitMutation.ID,
-				TransactionID: transaction.ID,
-				Amount:        request.Amount.String(),
+			// Wallet update for sender (Skip for Super Admin)
+			if !isSuperAdmin && debitMutation != nil {
+				senderWalletNotification := &model.WalletUpdateNotification{
+					WalletID:      fromWallet.ID,
+					NewBalance:    fromBalanceAfter.String(),
+					MutationType:  string(entity.MutationTypeDebit),
+					MutationID:    debitMutation.ID,
+					TransactionID: transaction.ID,
+					Amount:        request.Amount.String(),
+				}
+				uc.Notifier.NotifyWalletUpdate(*auth.UserID, senderWalletNotification)
 			}
-			uc.Notifier.NotifyWalletUpdate(*auth.UserID, senderWalletNotification)
 
 			// Notification for recipient
 			recipientNotification := &model.TransactionNotification{

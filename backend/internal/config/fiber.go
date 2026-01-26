@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/spf13/viper"
 )
 
@@ -15,6 +16,14 @@ func NewFiber(viper *viper.Viper) *fiber.App {
 		Prefork:      viper.GetBool("web.prefork"),
 		ErrorHandler: NewErrorHandler(),
 	})
+
+	// CORS middleware untuk mengizinkan request dari frontend
+	app.Use(cors.New(cors.Config{
+		AllowOrigins:     "http://localhost:5173",
+		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS",
+		AllowHeaders:     "Origin,Content-Type,Accept,Authorization",
+		AllowCredentials: true,
+	}))
 
 	return app
 }
