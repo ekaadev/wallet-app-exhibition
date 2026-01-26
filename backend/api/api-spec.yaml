@@ -1,14 +1,50 @@
 openapi: 3.1.0
 info:
   title: Wallet Exhibition API
-  description: Wallet Exhibition API Documentation
+  description: |
+    API Documentation untuk Wallet Exhibition Application.
+    
+    Aplikasi ini menyediakan fitur:
+    - Registrasi dan login pengguna
+    - Manajemen wallet
+    - Top-up saldo (super admin only)
+    - Transfer antar pengguna
+    - Riwayat transaksi dan mutasi wallet
+    - Real-time notifications via WebSocket
   version: 1.0.0
 servers:
-  - url: 'http://localhost:3000/v1/api'
+  - url: 'http://localhost:3000'
+    description: Development server
+tags:
+  - name: Users
+    description: Operasi terkait pengguna (registrasi, login)
+  - name: Wallets
+    description: Operasi terkait wallet
+  - name: Transactions
+    description: Operasi terkait transaksi (top-up, transfer)
+  - name: Wallet Mutations
+    description: Operasi terkait mutasi wallet
 paths:
+  /health:
+    get:
+      summary: Health check
+      description: Endpoint untuk mengecek status server
+      responses:
+        '200':
+          description: Server berjalan normal
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
   /users/register:
     post:
-      summary: for use registration
+      summary: Registrasi pengguna baru
+      description: |
+        Mendaftarkan pengguna baru. Pengguna yang terdaftar otomatis memiliki wallet dengan saldo awal 0.
       tags:
         - Users
       requestBody:
@@ -16,17 +52,30 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UserRegistration"
+              $ref: '#/components/schemas/UserRegistrationRequest'
       responses:
-        "201":
-          description: successful registration
+        '201':
+          description: Registrasi berhasil
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UserResponse"
+                $ref: '#/components/schemas/UserResponseWrapper'
+        '400':
+          description: Request tidak valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Username sudah digunakan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /users/login:
     post:
-      summary: for use login
+      summary: Login pengguna
+      description: Autentikasi pengguna dan mendapatkan JWT token
       tags:
         - Users
       requestBody:
@@ -34,44 +83,540 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UserLogin"
+              $ref: '#/components/schemas/UserLoginRequest'
       responses:
-        "200":
-          description: successful login
+        '200':
+          description: Login berhasil
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UserResponse"
+                $ref: '#/components/schemas/UserResponseWrapper'
+        '400':
+          description: Request tidak valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Username atau password salah
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /users/me:
+    get:
+      summary: Get profile pengguna
+      description: Mendapatkan informasi profil pengguna yang sedang login beserta data wallet
+      tags:
+        - Users
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Berhasil mendapatkan profil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponseWrapper'
+        '401':
+          description: Tidak terautentikasi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User tidak ditemukan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /wallets/me:
+    get:
+      summary: Get wallet pengguna
+      description: Mendapatkan informasi wallet pengguna yang sedang login
+      tags:
+        - Wallets
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Berhasil mendapatkan wallet
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletResponseWrapper'
+        '401':
+          description: Tidak terautentikasi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Wallet tidak ditemukan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /transactions/topup:
+    post:
+      summary: Top-up saldo (Super Admin only)
+      description: |
+        Menambahkan saldo ke wallet pengguna lain.
+        Hanya dapat dilakukan oleh super admin.
+        Saldo super admin tidak berkurang.
+      tags:
+        - Transactions
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TopUpRequest'
+      responses:
+        '201':
+          description: Top-up berhasil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponseWrapper'
+        '400':
+          description: Request tidak valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Tidak terautentikasi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Hanya super admin yang dapat melakukan top-up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Wallet penerima tidak ditemukan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /transactions/transfer:
+    post:
+      summary: Transfer saldo
+      description: |
+        Transfer saldo ke wallet pengguna lain.
+        Pengguna dapat melakukan transfer ke pengguna lain termasuk admin.
+      tags:
+        - Transactions
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferRequest'
+      responses:
+        '201':
+          description: Transfer berhasil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponseWrapper'
+        '400':
+          description: Request tidak valid atau saldo tidak cukup
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Tidak terautentikasi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Wallet tidak ditemukan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /transactions:
+    get:
+      summary: Get daftar transaksi
+      description: Mendapatkan daftar transaksi pengguna yang sedang login dengan pagination
+      tags:
+        - Transactions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Nomor halaman (default 1)
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Jumlah item per halaman (default 10, max 100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: Berhasil mendapatkan daftar transaksi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionListResponseWrapper'
+        '401':
+          description: Tidak terautentikasi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /wallet-mutations:
+    get:
+      summary: Get daftar mutasi wallet
+      description: Mendapatkan daftar mutasi wallet pengguna yang sedang login dengan pagination
+      tags:
+        - Wallet Mutations
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Nomor halaman (default 1)
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Jumlah item per halaman (default 10, max 100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: Berhasil mendapatkan daftar mutasi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletMutationListResponseWrapper'
+        '401':
+          description: Tidak terautentikasi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Wallet tidak ditemukan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   securitySchemes:
-    bearerAuth: # arbitrary name for the security scheme
+    bearerAuth:
       type: http
       scheme: bearer
-      bearerFormat: JWT # optional, arbitrary value for documentation purposes
+      bearerFormat: JWT
+      description: JWT token yang didapat dari login
   schemas:
-    UserRegistration:
+    # Request Schemas
+    UserRegistrationRequest:
       type: object
+      required:
+        - username
+        - password
       properties:
         username:
           type: string
+          minLength: 3
+          maxLength: 100
+          pattern: '^[a-zA-Z0-9]+$'
+          description: Username (alphanumeric, 3-100 karakter)
+          example: johndoe
         password:
           type: string
-    UserLogin:
+          minLength: 8
+          maxLength: 255
+          description: Password (minimal 8 karakter)
+          example: password123
+    UserLoginRequest:
       type: object
+      required:
+        - username
+        - password
       properties:
         username:
           type: string
+          description: Username
+          example: johndoe
         password:
           type: string
+          description: Password
+          example: password123
+    TopUpRequest:
+      type: object
+      required:
+        - to_user_id
+        - amount
+      properties:
+        to_user_id:
+          type: integer
+          description: ID pengguna yang akan menerima top-up
+          example: 2
+        amount:
+          type: number
+          description: Jumlah saldo yang akan ditambahkan (harus positif)
+          example: 100000
+        description:
+          type: string
+          description: Deskripsi transaksi (opsional)
+          example: Top-up saldo bulan Januari
+    TransferRequest:
+      type: object
+      required:
+        - to_user_id
+        - amount
+      properties:
+        to_user_id:
+          type: integer
+          description: ID pengguna penerima
+          example: 3
+        amount:
+          type: number
+          description: Jumlah saldo yang akan ditransfer (harus positif)
+          example: 50000
+        description:
+          type: string
+          description: Deskripsi transaksi (opsional)
+          example: Bayar makan siang
+    # Response Schemas
     UserResponse:
       type: object
       properties:
+        id:
+          type: integer
+          description: ID pengguna
+          example: 1
+        username:
+          type: string
+          description: Username
+          example: johndoe
+        token:
+          type: string
+          description: JWT token untuk autentikasi
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    UserResponseWrapper:
+      type: object
+      properties:
         data:
-          type: object
-          properties:
-            id:
-              type: string
-            username:
-              type: string
-            token:
-              type: string
+          $ref: '#/components/schemas/UserResponse'
+    UserProfileResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: ID pengguna
+          example: 1
+        username:
+          type: string
+          description: Username
+          example: johndoe
+        role:
+          type: string
+          enum: [super_admin, admin, user]
+          description: Role pengguna
+          example: user
+        wallet:
+          $ref: '#/components/schemas/UserProfileWalletInfo'
+    UserProfileWalletInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: ID wallet
+          example: 1
+        balance:
+          type: string
+          description: Saldo wallet
+          example: "150000"
+    UserProfileResponseWrapper:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/UserProfileResponse'
+    WalletResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: ID wallet
+          example: 1
+        user_id:
+          type: integer
+          description: ID pemilik wallet
+          example: 1
+        balance:
+          type: string
+          description: Saldo wallet
+          example: "150000"
+    WalletResponseWrapper:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/WalletResponse'
+    TransactionResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: ID transaksi
+          example: 1
+        type:
+          type: string
+          enum: [top_up, transfer]
+          description: Tipe transaksi
+          example: transfer
+        amount:
+          type: string
+          description: Jumlah transaksi
+          example: "50000"
+        from_wallet_id:
+          type: integer
+          nullable: true
+          description: ID wallet pengirim (null untuk top-up)
+          example: 1
+        to_wallet_id:
+          type: integer
+          description: ID wallet penerima
+          example: 2
+        performed_by_user_id:
+          type: integer
+          description: ID pengguna yang melakukan transaksi
+          example: 1
+        status:
+          type: string
+          enum: [pending, completed, failed]
+          description: Status transaksi
+          example: completed
+        description:
+          type: string
+          nullable: true
+          description: Deskripsi transaksi
+          example: Bayar makan siang
+        created_at:
+          type: string
+          format: date-time
+          description: Waktu transaksi dibuat
+          example: "2026-01-26T12:00:00Z"
+    TransactionResponseWrapper:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/TransactionResponse'
+    TransactionListResponse:
+      type: object
+      properties:
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionResponse'
+        total:
+          type: integer
+          description: Total jumlah transaksi
+          example: 25
+        page:
+          type: integer
+          description: Halaman saat ini
+          example: 1
+        limit:
+          type: integer
+          description: Jumlah item per halaman
+          example: 10
+    TransactionListResponseWrapper:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/TransactionListResponse'
+    WalletMutationResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: ID mutasi
+          example: 1
+        wallet_id:
+          type: integer
+          description: ID wallet
+          example: 1
+        transaction_id:
+          type: integer
+          description: ID transaksi terkait
+          example: 1
+        type:
+          type: string
+          enum: [credit, debit]
+          description: Tipe mutasi
+          example: credit
+        amount:
+          type: string
+          description: Jumlah mutasi
+          example: "50000"
+        balance_before:
+          type: string
+          description: Saldo sebelum mutasi
+          example: "100000"
+        balance_after:
+          type: string
+          description: Saldo setelah mutasi
+          example: "150000"
+        created_at:
+          type: string
+          format: date-time
+          description: Waktu mutasi dibuat
+          example: "2026-01-26T12:00:00Z"
+    WalletMutationListResponse:
+      type: object
+      properties:
+        mutations:
+          type: array
+          items:
+            $ref: '#/components/schemas/WalletMutationResponse'
+        total:
+          type: integer
+          description: Total jumlah mutasi
+          example: 50
+        page:
+          type: integer
+          description: Halaman saat ini
+          example: 1
+        limit:
+          type: integer
+          description: Jumlah item per halaman
+          example: 10
+    WalletMutationListResponseWrapper:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/WalletMutationListResponse'
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Pesan error
+          example: Invalid request
