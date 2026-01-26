@@ -1,259 +1,365 @@
-<script>
-    import { ArrowLeft, Send } from 'lucide-svelte';
+<script lang="ts">
+	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
+	import { ArrowLeft, Send } from 'lucide-svelte';
+	import { token, user, loadProfile } from '$lib/stores/auth';
+	import { transfer } from '$lib/api';
 
-    // State untuk input form (Svelte 5)
-    let recipient = $state('');
-    let amount = $state('');
-    let note = $state('');
-    let isLoading = $state(false);
+	// State untuk input form
+	let recipientId = $state('');
+	let amount = $state('');
+	let note = $state('');
+	let isLoading = $state(false);
+	let errorMessage = $state('');
+	let successMessage = $state('');
 
-    // Fungsi format rupiah sederhana untuk display (opsional)
-    // @ts-ignore
-    function formatRupiah(value) {
-        if (!value) return '';
-        return new Intl.NumberFormat('id-ID').format(value);
-    }
+	// Check auth saat mount
+	onMount(async () => {
+		if (!$token) {
+			goto('/login');
+			return;
+		}
+		// Load profile untuk mendapatkan data wallet terbaru
+		await loadProfile();
+	});
 
-    function handleSend() {
-        if (!recipient || !amount) {
-            alert("Mohon isi tujuan dan jumlah transfer");
-            return;
-        }
+	// Fungsi format rupiah untuk display
+	function formatRupiah(value: string | number): string {
+		if (!value) return '';
+		return new Intl.NumberFormat('id-ID').format(Number(value));
+	}
 
-        isLoading = true;
-        
-        // Simulasi delay kirim
-        setTimeout(() => {
-            alert(`Berhasil kirim Rp${formatRupiah(amount)} ke ${recipient}`);
-            isLoading = false;
-            // Reset form atau redirect
-        }, 1500);
-    }
+	// Handle submit transfer
+	async function handleSend() {
+		errorMessage = '';
+		successMessage = '';
+
+		// Validasi input
+		if (!recipientId || !amount) {
+			errorMessage = 'Mohon isi ID penerima dan jumlah transfer';
+			return;
+		}
+
+		const userId = parseInt(recipientId);
+		if (isNaN(userId) || userId <= 0) {
+			errorMessage = 'ID penerima harus berupa angka yang valid';
+			return;
+		}
+
+		const transferAmount = parseFloat(amount);
+		if (isNaN(transferAmount) || transferAmount <= 0) {
+			errorMessage = 'Jumlah transfer harus lebih dari 0';
+			return;
+		}
+
+		// Cek saldo cukup
+		if ($user?.wallet) {
+			const currentBalance = parseFloat($user.wallet.balance);
+			if (transferAmount > currentBalance) {
+				errorMessage = 'Saldo tidak cukup';
+				return;
+			}
+		}
+
+		isLoading = true;
+
+		try {
+			const response = await transfer($token!, {
+				to_user_id: userId,
+				amount: transferAmount,
+				description: note || undefined
+			});
+
+			if (response.data) {
+				successMessage = `Berhasil kirim Rp${formatRupiah(amount)} ke User ID ${recipientId}`;
+				// Reset form
+				recipientId = '';
+				amount = '';
+				note = '';
+				// Reload profile untuk update saldo
+				await loadProfile();
+			}
+		} catch (err) {
+			errorMessage = err instanceof Error ? err.message : 'Transfer gagal';
+		} finally {
+			isLoading = false;
+		}
+	}
 </script>
 
 <div class="page-container">
-    
-    <header class="header">
-        <a href="/wallet" class="back-btn" aria-label="Kembali">
-            <ArrowLeft size={24} color="#007aff" />
-        </a>
-        <h1>Transfer</h1>
-        <div class="spacer"></div> </header>
+	<header class="header">
+		<a href="/wallet" class="back-btn" aria-label="Kembali">
+			<ArrowLeft size={24} color="#007aff" />
+		</a>
+		<h1>Transfer</h1>
+		<div class="spacer"></div>
+	</header>
 
-    <div class="ios-list-group">
-        
-        <div class="list-row">
-            <label for="recipient" class="row-label">Ke</label>
-            <input 
-                id="recipient" 
-                type="text" 
-                class="row-input" 
-                placeholder="Username / Wallet ID"
-                bind:value={recipient}
-            />
-        </div>
+	{#if errorMessage}
+		<div class="message error-message">
+			{errorMessage}
+		</div>
+	{/if}
 
-        <div class="list-row">
-            <label for="amount" class="row-label">Jumlah</label>
-            <div class="amount-wrapper">
-                <span class="currency">Rp</span>
-                <input 
-                    id="amount" 
-                    type="number" 
-                    class="row-input amount-input" 
-                    placeholder="0"
-                    bind:value={amount}
-                />
-            </div>
-        </div>
-    </div>
+	{#if successMessage}
+		<div class="message success-message">
+			{successMessage}
+		</div>
+	{/if}
 
-    <div class="ios-list-group">
-        <div class="list-row">
-            <label for="note" class="row-label">Catatan</label>
-            <input 
-                id="note" 
-                type="text" 
-                class="row-input" 
-                placeholder="Pembayaran makan siang..."
-                bind:value={note}
-            />
-        </div>
-    </div>
+	{#if $user?.wallet}
+		<div class="balance-display">
+			<span class="balance-label">Saldo Anda:</span>
+			<span class="balance-value">Rp{formatRupiah($user.wallet.balance)}</span>
+		</div>
+	{/if}
 
-    <div class="fixed-footer">
-        <button 
-            class="send-btn {isLoading ? 'loading' : ''}" 
-            onclick={handleSend}
-            disabled={isLoading}
-        >
-            {#if isLoading}
-                Memproses...
-            {:else}
-                <span class="btn-text">Kirim Sekarang</span>
-                <Send size={18} />
-            {/if}
-        </button>
-    </div>
+	<div class="ios-list-group">
+		<div class="list-row">
+			<label for="recipient" class="row-label">Ke (User ID)</label>
+			<input
+				id="recipient"
+				type="number"
+				class="row-input"
+				placeholder="Masukkan User ID"
+				bind:value={recipientId}
+				disabled={isLoading}
+			/>
+		</div>
 
+		<div class="list-row">
+			<label for="amount" class="row-label">Jumlah</label>
+			<div class="amount-wrapper">
+				<span class="currency">Rp</span>
+				<input
+					id="amount"
+					type="number"
+					class="row-input amount-input"
+					placeholder="0"
+					bind:value={amount}
+					disabled={isLoading}
+				/>
+			</div>
+		</div>
+	</div>
+
+	<div class="ios-list-group">
+		<div class="list-row">
+			<label for="note" class="row-label">Catatan</label>
+			<input
+				id="note"
+				type="text"
+				class="row-input"
+				placeholder="Pembayaran makan siang..."
+				bind:value={note}
+				disabled={isLoading}
+			/>
+		</div>
+	</div>
+
+	<div class="fixed-footer">
+		<button class="send-btn {isLoading ? 'loading' : ''}" onclick={handleSend} disabled={isLoading}>
+			{#if isLoading}
+				Memproses...
+			{:else}
+				<span class="btn-text">Kirim Sekarang</span>
+				<Send size={18} />
+			{/if}
+		</button>
+	</div>
 </div>
 
 <style>
-    /* Reset & Base */
-    :global(body) {
-        background-color: #ffffff;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    }
+	:global(body) {
+		background-color: #ffffff;
+		font-family:
+			-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+	}
 
-    .page-container {
-        padding: 1rem 1.5rem;
-        max-width: 480px;
-        margin: 0 auto;
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-    }
+	.page-container {
+		padding: 1rem 1.5rem;
+		max-width: 480px;
+		margin: 0 auto;
+		min-height: 100vh;
+		display: flex;
+		flex-direction: column;
+	}
 
-    /* --- HEADER --- */
-    .header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 2rem;
-        padding-top: 1rem;
-    }
+	.header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 1.5rem;
+		padding-top: 1rem;
+	}
 
-    .header h1 {
-        font-size: 1.1rem;
-        font-weight: 700;
-        margin: 0;
-        color: #000;
-    }
+	.header h1 {
+		font-size: 1.1rem;
+		font-weight: 700;
+		margin: 0;
+		color: #000;
+	}
 
-    .back-btn {
-        background: none;
-        border: none;
-        cursor: pointer;
-        padding: 0;
-        display: flex;
-        align-items: center;
-    }
+	.back-btn {
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: 0;
+		display: flex;
+		align-items: center;
+	}
 
-    .spacer { width: 24px; } /* Penyeimbang layout header */
+	.spacer {
+		width: 24px;
+	}
 
+	.message {
+		padding: 0.75rem 1rem;
+		border-radius: 8px;
+		margin-bottom: 1rem;
+		font-size: 0.9rem;
+	}
 
-    /* --- IOS GROUP STYLE (Sama seperti Profile) --- */
-    .ios-list-group {
-        background-color: #f2f4f6; /* Abu-abu muda */
-        border-radius: 12px;
-        overflow: hidden;
-        margin-bottom: 1.5rem;
-    }
+	.error-message {
+		background-color: #fee2e2;
+		color: #dc2626;
+	}
 
-    .list-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 1rem 1rem;
-        border-bottom: 1px solid #e5e5ea;
-        background: transparent;
-    }
+	.success-message {
+		background-color: #dcfce7;
+		color: #16a34a;
+	}
 
-    .list-row:last-child {
-        border-bottom: none;
-    }
+	.balance-display {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 0.75rem 1rem;
+		background-color: #f0f9ff;
+		border-radius: 8px;
+		margin-bottom: 1rem;
+	}
 
-    .row-label {
-        font-size: 0.95rem;
-        font-weight: 600;
-        color: #1c1c1e;
-        width: 80px; /* Lebar tetap untuk label agar input sejajar */
-        flex-shrink: 0;
-    }
+	.balance-label {
+		font-size: 0.9rem;
+		color: #666;
+	}
 
-    /* --- INPUT STYLES --- */
-    .row-input {
-        border: none;
-        background: transparent;
-        font-size: 0.95rem;
-        color: #000; /* Input teks hitam */
-        width: 100%;
-        text-align: right; /* Gaya iOS: Value di kanan */
-        font-family: inherit;
-        outline: none;
-    }
+	.balance-value {
+		font-size: 1rem;
+		font-weight: 600;
+		color: #007aff;
+	}
 
-    .row-input::placeholder {
-        color: #c7c7cc; /* Placeholder abu-abu */
-    }
+	.ios-list-group {
+		background-color: #f2f4f6;
+		border-radius: 12px;
+		overflow: hidden;
+		margin-bottom: 1.5rem;
+	}
 
-    /* Khusus Input Angka */
-    .amount-wrapper {
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-        width: 100%;
-        gap: 2px;
-    }
+	.list-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 1rem 1rem;
+		border-bottom: 1px solid #e5e5ea;
+		background: transparent;
+	}
 
-    .currency {
-        font-weight: 600;
-        color: #1c1c1e;
-    }
+	.list-row:last-child {
+		border-bottom: none;
+	}
 
-    .amount-input {
-        font-weight: 600;
-        color: #007aff; /* Warna biru untuk jumlah uang */
-    }
+	.row-label {
+		font-size: 0.95rem;
+		font-weight: 600;
+		color: #1c1c1e;
+		width: 100px;
+		flex-shrink: 0;
+	}
 
-    /* Hapus spinner di input number */
-    input[type=number]::-webkit-inner-spin-button, 
-    input[type=number]::-webkit-outer-spin-button { 
-        -webkit-appearance: none; 
-        margin: 0; 
-    }
+	.row-input {
+		border: none;
+		background: transparent;
+		font-size: 0.95rem;
+		color: #000;
+		width: 100%;
+		text-align: right;
+		font-family: inherit;
+		outline: none;
+	}
 
+	.row-input::placeholder {
+		color: #c7c7cc;
+	}
 
-    .fixed-footer {
-        position: fixed;
-        bottom: 0;
-        /* Trik agar footer tetap di tengah meski di layar desktop lebar */
-        left: 50%;
-        transform: translateX(-50%);
-        width: 100%;
-        max-width: 480px; /* Samakan dengan max-width container */
-        
-        background: rgba(255, 255, 255, 0.9); /* Latar belakang agak transparan */
-        backdrop-filter: blur(10px); /* Efek blur glass */
-        border-top: 1px solid rgba(0,0,0,0.05); /* Garis batas tipis */
-        
-        padding: 1rem 1.5rem 2rem 1.5rem; /* Padding bawah lebih besar untuk area HP swipe */
-        z-index: 100;
-    }
+	.row-input:disabled {
+		opacity: 0.6;
+	}
 
-    .send-btn {
-        background-color: #1c1c1e;
-        color: white;
-        width: 100%;
-        padding: 1rem;
-        border: none;
-        border-radius: 50px; /* Tombol bulat penuh lebih modern untuk floating */
-        font-size: 1rem;
-        font-weight: 600;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.15); /* Shadow agar terlihat melayang */
-    }
+	.amount-wrapper {
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		width: 100%;
+		gap: 2px;
+	}
 
-    .send-btn:active {
-        transform: scale(0.98);
-    }
+	.currency {
+		font-weight: 600;
+		color: #1c1c1e;
+	}
 
-    .send-btn:disabled {
-        background-color: #8e8e93;
-        cursor: not-allowed;
-    }
+	.amount-input {
+		font-weight: 600;
+		color: #007aff;
+	}
+
+	input[type='number']::-webkit-inner-spin-button,
+	input[type='number']::-webkit-outer-spin-button {
+		-webkit-appearance: none;
+		margin: 0;
+	}
+
+	.fixed-footer {
+		position: fixed;
+		bottom: 0;
+		left: 50%;
+		transform: translateX(-50%);
+		width: 100%;
+		max-width: 480px;
+		background: rgba(255, 255, 255, 0.9);
+		backdrop-filter: blur(10px);
+		border-top: 1px solid rgba(0, 0, 0, 0.05);
+		padding: 1rem 1.5rem 2rem 1.5rem;
+		z-index: 100;
+	}
+
+	.send-btn {
+		background-color: #1c1c1e;
+		color: white;
+		width: 100%;
+		padding: 1rem;
+		border: none;
+		border-radius: 50px;
+		font-size: 1rem;
+		font-weight: 600;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.5rem;
+		box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+	}
+
+	.send-btn:active {
+		transform: scale(0.98);
+	}
+
+	.send-btn:disabled {
+		background-color: #8e8e93;
+		cursor: not-allowed;
+	}
 </style>

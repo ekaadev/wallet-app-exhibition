@@ -1,171 +1,94 @@
-<script>
-	// @ts-nocheck
+<script lang="ts">
+	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { ArrowUpRight, ArrowDownLeft, User, Wallet, ArrowLeft } from 'lucide-svelte';
+	import { token, user } from '$lib/stores/auth';
+	import { getWalletMutations, type WalletMutationResponse } from '$lib/api/wallet';
 
-	import {
-		ArrowUpRight,
-		ArrowDownLeft,
-		User,
-		Smartphone,
-		Zap,
-		QrCode,
-		Wallet,
-		ArrowLeft
-	} from 'lucide-svelte';
+	// State
+	let mutations: WalletMutationResponse[] = $state([]);
+	let loading = $state(true);
+	let error = $state('');
 
-	// --- MOCKUP DATA TRANSAKSI WALLET ---
-	const transactions = [
-		// BULAN INI (JANUARI 2026)
-		{
-			id: 1,
-			title: 'Budi Santoso',
-			desc: 'Bayar makan siang',
-			date: '28 Jan 2026',
-			type: 'expense',
-			amount: 25000,
-			category: 'transfer_out'
-		},
-		{
-			id: 2,
-			title: 'Top Up BCA',
-			desc: 'Via m-Banking',
-			date: '27 Jan 2026',
-			type: 'income',
-			amount: 500000,
-			category: 'topup'
-		},
-		{
-			id: 3,
-			title: 'Token Listrik',
-			desc: 'ID: 1234567890',
-			date: '25 Jan 2026',
-			type: 'expense',
-			amount: 102500,
-			category: 'bill'
-		},
-		{
-			id: 4,
-			title: 'Siti Aminah',
-			desc: 'Patungan kado',
-			date: '24 Jan 2026',
-			type: 'income',
-			amount: 75000,
-			category: 'transfer_in'
-		},
-		{
-			id: 5,
-			title: 'Kopi Kenangan',
-			desc: 'QRIS Payment',
-			date: '20 Jan 2026',
-			type: 'expense',
-			amount: 22000,
-			category: 'qris'
-		},
-
-		// BULAN LALU (DESEMBER 2025)
-		{
-			id: 6,
-			title: 'Tarik Tunai ATM',
-			desc: 'ATM Bersama',
-			date: '30 Des 2025',
-			type: 'expense',
-			amount: 100000,
-			category: 'withdraw'
-		},
-		{
-			id: 7,
-			title: 'Rizky Febian',
-			desc: 'Ganti uang bensin',
-			date: '28 Des 2025',
-			type: 'expense',
-			amount: 50000,
-			category: 'transfer_out'
-		},
-		{
-			id: 8,
-			title: 'Top Up Mandiri',
-			desc: 'Via ATM',
-			date: '20 Des 2025',
-			type: 'income',
-			amount: 1000000,
-			category: 'topup'
+	// Load data saat mount
+	onMount(async () => {
+		if (!$token) {
+			goto('/login');
+			return;
 		}
-	];
+
+		try {
+			const response = await getWalletMutations($token, 1, 50); // Get 50 transaksi terakhir
+			if (response.data) {
+				mutations = response.data.mutations;
+			}
+		} catch (err) {
+			error = 'Gagal memuat riwayat transaksi';
+			console.error(err);
+		} finally {
+			loading = false;
+		}
+	});
 
 	// Helper Format Rupiah
-	// @ts-ignore
-	function formatRupiah(value) {
+	function formatRupiah(value: number | string): string {
 		return new Intl.NumberFormat('id-ID', {
 			style: 'currency',
 			currency: 'IDR',
 			maximumFractionDigits: 0
-		}).format(value);
+		}).format(Number(value));
 	}
 
-	// 1. Hitung Summary Otomatis
+	// Helper Format Tanggal
+	function formatDate(dateString: string): string {
+		const date = new Date(dateString);
+		return date.toLocaleDateString('id-ID', {
+			day: 'numeric',
+			month: 'short',
+			year: 'numeric'
+		});
+	}
+
+	// Menghitung Summary
 	let totalIncome = $derived(
-		transactions.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0)
+		mutations.filter((m) => m.type === 'credit').reduce((sum, m) => sum + Number(m.amount), 0)
 	);
 
 	let totalExpense = $derived(
-		transactions.filter((t) => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0)
+		mutations.filter((m) => m.type === 'debit').reduce((sum, m) => sum + Number(m.amount), 0)
 	);
 
-	// 2. Grouping Data per Bulan
-	// @ts-ignore
-	function groupTransactions(data) {
-		const groups = {};
-		// @ts-ignore
-		data.forEach((t) => {
-			const dateParts = t.date.split(' ');
-			const monthYear = `${dateParts[1]} ${dateParts[2]}`;
-			// @ts-ignore
+	// Grouping Data per Bulan
+	function groupMutations(data: WalletMutationResponse[]) {
+		const groups: Record<string, WalletMutationResponse[]> = {};
+
+		data.forEach((m) => {
+			const date = new Date(m.created_at);
+			const monthYear = date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+
 			if (!groups[monthYear]) groups[monthYear] = [];
-			// @ts-ignore
-			groups[monthYear].push(t);
+			groups[monthYear].push(m);
 		});
+
 		return groups;
 	}
 
-	const groupedData = groupTransactions(transactions);
-	const months = Object.keys(groupedData);
+	let groupedData = $derived(groupMutations(mutations));
+	let months = $derived(Object.keys(groupedData));
 
-	// 3. Logic Icon & Warna berdasarkan Kategori Wallet
-	// @ts-ignore
-	function getIcon(category) {
-		switch (category) {
-			case 'transfer_out':
-				return User; // Kirim ke orang
-			case 'transfer_in':
-				return User; // Terima dari orang
-			case 'topup':
-				return Wallet; // Isi Saldo
-			case 'bill':
-				return Zap; // Bayar Tagihan
-			case 'qris':
-				return QrCode; // Scan QR
-			case 'withdraw':
-				return Smartphone; // Tarik Tunai/Pulsa
-			default:
-				return User;
-		}
+	// Logic Icon
+	function getIcon(type: 'credit' | 'debit') {
+		return type === 'credit' ? Wallet : User;
 	}
 
-	// @ts-ignore
-	function getColor(category) {
-		switch (category) {
-			case 'transfer_in':
-				return '#34c759'; // Hijau (Masuk)
-			case 'topup':
-				return '#34c759'; // Hijau (Masuk)
-			case 'transfer_out':
-				return '#007aff'; // Biru (Transfer)
-			case 'bill':
-				return '#ff9500'; // Orange (Tagihan)
-			case 'qris':
-				return '#af52de'; // Ungu (QRIS)
-			default:
-				return '#8e8e93'; // Abu-abu
-		}
+	// Logic Warna
+	function getColor(type: 'credit' | 'debit') {
+		return type === 'credit' ? '#34c759' : '#1a1a1a'; // Hijau : Hitam
+	}
+
+	// Logic Title
+	function getTitle(type: 'credit' | 'debit'): string {
+		return type === 'credit' ? 'Uang Masuk' : 'Uang Keluar';
 	}
 </script>
 
@@ -180,66 +103,83 @@
 		<div class="spacer"></div>
 	</header>
 
-	<div class="summary-card">
-		<div class="summary-item">
-			<div class="icon-circle income-bg">
-				<ArrowDownLeft size={20} color="#34c759" />
+	{#if loading}
+		<div class="loading-state">Memuat riwayat...</div>
+	{:else if error}
+		<div class="error-state">{error}</div>
+	{:else}
+		<div class="summary-card">
+			<div class="summary-item">
+				<div class="icon-circle income-bg">
+					<ArrowDownLeft size={20} color="#34c759" />
+				</div>
+				<div class="summary-text">
+					<span class="label">Uang Masuk</span>
+					<span class="value income">{formatRupiah(totalIncome)}</span>
+				</div>
 			</div>
-			<div class="summary-text">
-				<span class="label">Uang Masuk</span>
-				<span class="value income">{formatRupiah(totalIncome)}</span>
+
+			<div class="divider"></div>
+
+			<div class="summary-item">
+				<div class="icon-circle expense-bg">
+					<ArrowUpRight size={20} color="#ff3b30" />
+				</div>
+				<div class="summary-text">
+					<span class="label">Uang Keluar</span>
+					<span class="value expense">{formatRupiah(totalExpense)}</span>
+				</div>
 			</div>
 		</div>
 
-		<div class="divider"></div>
-
-		<div class="summary-item">
-			<div class="icon-circle expense-bg">
-				<ArrowUpRight size={20} color="#ff3b30" />
+		{#if mutations.length === 0}
+			<div class="empty-state">
+				<p>Belum ada transaksi</p>
 			</div>
-			<div class="summary-text">
-				<span class="label">Uang Keluar</span>
-				<span class="value expense">{formatRupiah(totalExpense)}</span>
-			</div>
-		</div>
-	</div>
+		{:else}
+			<div class="history-list">
+				{#each months as month}
+					<div class="month-header">{month.toUpperCase()}</div>
 
-	<div class="history-list">
-		{#each months as month}
-			<div class="month-header">{month.toUpperCase()}</div>
+					<div class="ios-list-group">
+						{#each groupedData[month] as item}
+							{@const ItemIcon = getIcon(item.type)}
+							{@const iconColor = getColor(item.type)}
 
-			<div class="ios-list-group">
-				{#each groupedData[month] as item}
-					{@const ItemIcon = getIcon(item.category)}
-					{@const iconColor = getColor(item.category)}
+							<div class="list-row">
+								<div class="row-left">
+									<div
+										class="category-icon"
+										style="background-color: {item.type === 'credit' ? '#f0fdf4' : '#f3f4f6'};"
+									>
+										<ItemIcon size={18} color={iconColor} />
+									</div>
+									<div class="item-details">
+										<span class="item-title">{getTitle(item.type)}</span>
+										<span class="item-desc"
+											>Ref: {item.transaction_id} • Sisa: {formatRupiah(item.balance_after)}</span
+										>
+									</div>
+								</div>
 
-					<div class="list-row">
-						<div class="row-left">
-							<div class="category-icon" style="background-color: {iconColor}15;">
-								<ItemIcon size={18} color={iconColor} />
+								<div class="row-right">
+									<span class="amount {item.type}">
+										{item.type === 'credit' ? '+' : '-'}{formatRupiah(item.amount)}
+									</span>
+									<span class="date-label">{formatDate(item.created_at)}</span>
+								</div>
 							</div>
-							<div class="item-details">
-								<span class="item-title">{item.title}</span>
-								<span class="item-desc">{item.desc}</span>
-							</div>
-						</div>
-
-						<div class="row-right">
-							<span class="amount {item.type}">
-								{item.type === 'income' ? '+' : '-'}{formatRupiah(item.amount)}
-							</span>
-							<span class="date-label">{item.date.split(' ')[0]} {item.date.split(' ')[1]}</span>
-						</div>
+						{/each}
 					</div>
 				{/each}
 			</div>
-		{/each}
-	</div>
+		{/if}
+	{/if}
 </div>
 
 <style>
 	:global(body) {
-		background-color: #ffffff; /* Background Putih */
+		background-color: #ffffff;
 		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 	}
 
@@ -249,25 +189,30 @@
 		margin: 0 auto;
 	}
 
+	.loading-state,
+	.error-state,
+	.empty-state {
+		text-align: center;
+		padding: 2rem;
+		color: #8e8e93;
+	}
+
 	/* HEADER */
 	.header {
 		margin-bottom: 1.5rem;
 		padding-top: 1rem;
-
-		/* Flexbox untuk menata 3 elemen (Btn - Judul - Spacer) */
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 	}
 
 	.header h1 {
-		font-size: 1.2rem; /* Ukuran font disesuaikan agar rapi dgn tombol */
+		font-size: 1.2rem;
 		font-weight: 700;
 		margin: 0;
 		color: #111;
 	}
 
-	/* Style Tombol Back */
 	.back-btn {
 		background: none;
 		border: none;
@@ -276,12 +221,11 @@
 		display: flex;
 		align-items: center;
 		justify-content: flex-start;
-		width: 40px; /* Lebar area klik */
+		width: 40px;
 	}
 
-	/* Style Spacer Penyeimbang */
 	.spacer {
-		width: 40px; /* Harus sama dengan lebar back-btn */
+		width: 40px;
 	}
 
 	/* SUMMARY CARD */
@@ -417,10 +361,10 @@
 		font-size: 0.95rem;
 		font-weight: 700;
 	}
-	.amount.income {
+	.amount.credit {
 		color: #34c759;
 	}
-	.amount.expense {
+	.amount.debit {
 		color: #1a1a1a;
 	}
 	.date-label {
