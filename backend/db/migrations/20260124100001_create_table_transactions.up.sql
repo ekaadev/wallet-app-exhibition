@@ -1,0 +1,20 @@
+CREATE TABLE transactions (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    type ENUM('top_up', 'transfer', 'withdraw') NOT NULL,
+    amount DECIMAL(20, 2) NOT NULL,
+    from_wallet_id BIGINT UNSIGNED NULL,
+    to_wallet_id BIGINT UNSIGNED NOT NULL,
+    performed_by_user_id BIGINT UNSIGNED NOT NULL,
+    status ENUM('pending', 'completed', 'failed') NOT NULL DEFAULT 'pending',
+    description VARCHAR(255) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_transactions_type (type),
+    INDEX idx_transactions_status (status),
+    INDEX idx_transactions_from_wallet_id (from_wallet_id),
+    INDEX idx_transactions_to_wallet_id (to_wallet_id),
+    INDEX idx_transactions_performed_by_user_id (performed_by_user_id),
+    CONSTRAINT fk_transactions_from_wallet_id FOREIGN KEY (from_wallet_id) REFERENCES wallets(id) ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT fk_transactions_to_wallet_id FOREIGN KEY (to_wallet_id) REFERENCES wallets(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_transactions_performed_by_user_id FOREIGN KEY (performed_by_user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
