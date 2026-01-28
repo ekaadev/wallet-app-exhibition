@@ -31,7 +31,8 @@ func NewViper() *viper.Viper {
 	config.AddConfigPath("../../backend")
 	config.AddConfigPath(".")
 	if err := config.ReadInConfig(); err != nil {
-		panic(fmt.Errorf("Fatal error config file: %s \n", err))
+		//panic(fmt.Errorf("Fatal error config file: %s \n", err))
+		fmt.Println("Skipping! Failed to read config:", err)
 	}
 
 	// Read .env file and merge with existing config
@@ -41,7 +42,8 @@ func NewViper() *viper.Viper {
 	config.AddConfigPath("../../backend")
 	config.AddConfigPath(".")
 	if err := config.MergeInConfig(); err != nil {
-		panic(fmt.Errorf("Fatal error env file: %s \n", err))
+		//panic(fmt.Errorf("Fatal error env file: %s \n", err))
+		fmt.Println("Skipping! Failed to read env file:", err)
 	}
 
 	return config
