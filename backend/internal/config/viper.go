@@ -17,7 +17,7 @@ func NewViper() *viper.Viper {
 
 	config.SetDefault("app.name", "wallet-exhition-app")
 	config.SetDefault("web.port", 3000)
-	config.SetDefault("cookie.secure", false)
+	config.SetDefault("cookie.secure", true)
 	config.SetDefault("log.level", 7)
 
 	config.SetDefault("database.pool.idle", 10)
