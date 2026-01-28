@@ -1,10 +1,10 @@
 // WebSocket service untuk komunikasi real-time
-
+import { PUBLIC_WS_URL } from '$env/static/public';
 import { user, type AuthUser } from '$lib/stores/auth';
 import { get } from 'svelte/store';
 import { toast } from 'svelte-sonner';
 
-const WS_URL = import.meta.env.PUBLIC_WS_URL;
+const WS_URL = PUBLIC_WS_URL || 'ws://localhost:3000/ws';
 let ws: WebSocket | null = null;
 let reconnectValid = true;
 let reconnectInterval = 5000;
