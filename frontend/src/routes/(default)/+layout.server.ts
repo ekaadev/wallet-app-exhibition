@@ -14,8 +14,10 @@ export const load: LayoutServerLoad = async ({ fetch, cookies }) => {
 		method: 'GET',
 		headers: {
 			'Content-Type': 'application/json',
-			'Authorization': `Bearer ${token}`
-		}
+			Authorization: `Bearer ${token}`,
+			Cookie: `jwt=${token}`
+		},
+		credentials: 'include'
 	});
 
 	if (!res.ok) {
@@ -23,9 +25,9 @@ export const load: LayoutServerLoad = async ({ fetch, cookies }) => {
 		throw redirect(302, '/login');
 	}
 
-	const user = await res.json();
+	const responseData = await res.json();
 
 	return {
-		user
+		user: responseData.data
 	};
 };
