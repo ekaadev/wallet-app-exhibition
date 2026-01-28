@@ -1,6 +1,7 @@
 // API base configuration dan helper functions untuk HTTP requests
+import { PUBLIC_API_BASE_URL } from "$env/static/public";
 
-const API_BASE_URL = import.meta.env.PUBLIC_API_BASE_URL;
+const API_BASE_URL = PUBLIC_API_BASE_URL || 'http://localhost:3000';
 
 // Tipe response standar dari API
 export interface ApiResponse<T> {
