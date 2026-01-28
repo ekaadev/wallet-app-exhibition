@@ -9,16 +9,9 @@
 	let walletError = $state('');
 
 	// Load profile/wallet data saat mount
+	// Load profile/wallet data saat mount
 	onMount(async () => {
-		// Load profile dari API (termasuk wallet info)
-		const success = await loadProfile();
-		if (!success) {
-			// Jika gagal, kemungkinan token expired
-			walletError = 'Gagal memuat data wallet';
-			await logout();
-			return;
-		}
-
+		// Data user sudah di-load di layout
 		loading = false;
 	});
 
