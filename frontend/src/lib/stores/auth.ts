@@ -1,64 +1,18 @@
 // Auth store untuk state management autentikasi
 
 import { writable, derived, get } from 'svelte/store';
-import { login as apiLogin, register as apiRegister, getProfile, type UserResponse, type UserProfileResponse } from '$lib/api';
+import { login as apiLogin, register as apiRegister, getProfile, apiRequest, type UserResponse, type UserProfileResponse } from '$lib/api';
 import { connectWebSocket, disconnectWebSocket } from '$lib/api/websocket';
 
-// Key untuk localStorage
-const TOKEN_KEY = 'wallet_auth_token';
-const USER_KEY = 'wallet_auth_user';
-
-// Interface untuk user data yang disimpan di store
-export interface AuthUser {
-    id: number;
-    username: string;
-    role?: 'super_admin' | 'admin' | 'user';
-    wallet?: {
-        id: number;
-        balance: string;
-    };
-}
-
-// Fungsi helper untuk membaca dari localStorage (browser only)
-function getStoredToken(): string | null {
-    if (typeof window === 'undefined') return null;
-    return localStorage.getItem(TOKEN_KEY);
-}
-
-function getStoredUser(): AuthUser | null {
-    if (typeof window === 'undefined') return null;
-    const stored = localStorage.getItem(USER_KEY);
-    return stored ? JSON.parse(stored) : null;
-}
-
 // Stores
-export const token = writable<string | null>(getStoredToken());
-export const user = writable<AuthUser | null>(getStoredUser());
+export const token = writable<string | null>(null);
+export const user = writable<AuthUser | null>(null);
 export const loading = writable<boolean>(false);
 export const error = writable<string | null>(null);
 
 // Derived store untuk mengecek apakah user terautentikasi
-export const isAuthenticated = derived(token, ($token) => !!$token);
+export const isAuthenticated = derived(user, ($user) => !!$user);
 
-// Subscribe ke token untuk menyimpan ke localStorage
-token.subscribe((value) => {
-    if (typeof window === 'undefined') return;
-    if (value) {
-        localStorage.setItem(TOKEN_KEY, value);
-    } else {
-        localStorage.removeItem(TOKEN_KEY);
-    }
-});
-
-// Subscribe ke user untuk menyimpan ke localStorage
-user.subscribe((value) => {
-    if (typeof window === 'undefined') return;
-    if (value) {
-        localStorage.setItem(USER_KEY, JSON.stringify(value));
-    } else {
-        localStorage.removeItem(USER_KEY);
-    }
-});
 
 // Action: Login
 export async function login(username: string, password: string): Promise<boolean> {
@@ -77,7 +31,7 @@ export async function login(username: string, password: string): Promise<boolean
             });
             
             // Connect WebSocket setalah login berhasil
-            connectWebSocket(userData.token);
+            connectWebSocket();
             
             return true;
         }
@@ -109,7 +63,7 @@ export async function register(username: string, password: string): Promise<bool
             });
             
             // Connect WebSocket setelah register berhasil
-            connectWebSocket(userData.token);
+            connectWebSocket();
 
             return true;
         }
@@ -126,17 +80,11 @@ export async function register(username: string, password: string): Promise<bool
 
 // Action: Load profile dari API
 export async function loadProfile(): Promise<boolean> {
-    const currentToken = get(token);
-    if (!currentToken) {
-        error.set('Tidak terautentikasi');
-        return false;
-    }
-
     loading.set(true);
     error.set(null);
 
     try {
-        const response = await getProfile(currentToken);
+        const response = await getProfile();
         
         if (response.data) {
             const profile = response.data;
@@ -148,7 +96,8 @@ export async function loadProfile(): Promise<boolean> {
             });
 
             // Connect WebSocket jika session exist
-            connectWebSocket(currentToken);
+            // Kita butuh trigger khusus untuk check cookie or just connect
+            connectWebSocket();
 
             return true;
         }
@@ -158,18 +107,39 @@ export async function loadProfile(): Promise<boolean> {
     } catch (err) {
         // Jika gagal, kemungkinan token expired
         error.set(err instanceof Error ? err.message : 'Gagal memuat profil');
+        user.set(null); // Clear user if failed implies invalid session
         return false;
     } finally {
         loading.set(false);
     }
 }
 
+// Interface untuk user data yang disimpan di store
+export interface AuthUser {
+    id: number;
+    username: string;
+    role?: 'super_admin' | 'admin' | 'user';
+    wallet?: {
+        id: number;
+        balance: string;
+    };
+}
+
 // Action: Logout
-export function logout(): void {
+export async function logout(): Promise<void> {
+    try {
+        await apiRequest('/users/logout', { method: 'POST' });
+    } catch (e) {
+        console.error('Logout error:', e);
+    }
     disconnectWebSocket(); // Disconnect WS
     token.set(null);
     user.set(null);
     error.set(null);
+    // Force reload to clear any memory/state if needed, or just redirect
+    if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+    }
 }
 
 // Action: Clear error

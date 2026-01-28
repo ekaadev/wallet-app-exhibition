@@ -49,8 +49,8 @@ export async function register(credentials: RegisterRequest): Promise<ApiRespons
 }
 
 // Get profile user yang sedang login
-export async function getProfile(token: string): Promise<ApiResponse<UserProfileResponse>> {
-    return apiAuthRequest<UserProfileResponse>('/users/me', token, {
+export async function getProfile(): Promise<ApiResponse<UserProfileResponse>> {
+    return apiRequest<UserProfileResponse>('/users/me', {
         method: 'GET',
     });
 }
@@ -63,8 +63,8 @@ export interface WalletResponse {
 }
 
 // Get wallet user yang sedang login
-export async function getWallet(token: string): Promise<ApiResponse<WalletResponse>> {
-    return apiAuthRequest<WalletResponse>('/wallets/me', token, {
+export async function getWallet(): Promise<ApiResponse<WalletResponse>> {
+    return apiRequest<WalletResponse>('/wallets/me', {
         method: 'GET',
     });
 }

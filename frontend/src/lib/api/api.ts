@@ -1,6 +1,6 @@
 // API base configuration dan helper functions untuk HTTP requests
 
-const API_BASE_URL = 'http://localhost:3000';
+const API_BASE_URL = import.meta.env.PUBLIC_API_BASE_URL;
 
 // Tipe response standar dari API
 export interface ApiResponse<T> {
@@ -26,6 +26,7 @@ export async function apiRequest<T>(
 
     const response = await fetch(url, {
         ...options,
+        credentials: 'include',
         headers: {
             ...defaultHeaders,
             ...options.headers,

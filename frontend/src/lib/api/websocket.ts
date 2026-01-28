@@ -4,7 +4,7 @@ import { user, type AuthUser } from '$lib/stores/auth';
 import { get } from 'svelte/store';
 import { toast } from 'svelte-sonner';
 
-const WS_URL = 'ws://localhost:3000/ws';
+const WS_URL = import.meta.env.PUBLIC_WS_URL;
 let ws: WebSocket | null = null;
 let reconnectValid = true;
 let reconnectInterval = 5000;
@@ -32,7 +32,7 @@ interface TransactionPayload {
     to_user_id: number;
 }
 
-export function connectWebSocket(token: string) {
+export function connectWebSocket() {
     if (ws) {
         ws.onclose = null;
         ws.onerror = null;
@@ -40,7 +40,8 @@ export function connectWebSocket(token: string) {
     }
 
     reconnectValid = true;
-    const url = `${WS_URL}?token=${token}`;
+    // Browser automatically sends cookies with WebSocket connection
+    const url = WS_URL;
     
     try {
         ws = new WebSocket(url);
@@ -74,7 +75,7 @@ export function connectWebSocket(token: string) {
             if (reconnectValid) {
                 console.log('Reconnecting in 5s...');
                 setTimeout(() => {
-                    if (reconnectValid) connectWebSocket(token);
+                    if (reconnectValid) connectWebSocket();
                 }, reconnectInterval);
             }
         };
