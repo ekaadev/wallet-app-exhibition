@@ -12,22 +12,34 @@ import (
 // NewAuth creates a new authentication middleware for Fiber.
 func NewAuth(userUseCase *usecase.UserUseCase, tokenUtil *util.TokenUtil) fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
-		// Get the Authorization header
-		request := &model.VerifyUserRequest{
-			Token: ctx.Get("Authorization", "NOT_FOUND"),
+		var tokenString string
+
+		// 1. Coba ambil dari Header Authorization
+		authHeader := ctx.Get("Authorization")
+
+		if authHeader != "" {
+			// Format: "Bearer <token>"
+			parts := strings.Split(authHeader, " ")
+			if len(parts) == 2 && parts[0] == "Bearer" {
+				tokenString = parts[1]
+			}
 		}
 
-		// Split the "Bearer" prefix from the token
-		parts := strings.Split(request.Token, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			userUseCase.Log.Warnf("Invalid authorization header format")
+		// 2. Jika di Header tidak ada, coba ambil dari Query Param "token" (untuk WebSocket)
+		if tokenString == "" {
+			tokenString = ctx.Query("token")
+		}
+
+		// 3. Jika tetap kosong, baru return Unauthorized
+		if tokenString == "" {
+			userUseCase.Log.Warnf("Missing or invalid authorization format")
 			return fiber.ErrUnauthorized
 		}
 
-		// Parse and verify the token
-		auth, err := tokenUtil.ParseToken(ctx.UserContext(), parts[1])
+		// 4. Parse dan verify token yang didapat
+		auth, err := tokenUtil.ParseToken(ctx.UserContext(), tokenString)
 		if err != nil {
-			userUseCase.Log.Warnf("Invalid authorization header format")
+			userUseCase.Log.Warnf("Invalid token verification: %v", err)
 			return fiber.ErrUnauthorized
 		}
 

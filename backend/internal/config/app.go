@@ -4,6 +4,7 @@ import (
 	"backend/internal/delivery/http"
 	"backend/internal/delivery/http/middleware"
 	"backend/internal/delivery/http/route"
+	"backend/internal/delivery/websocket"
 	"backend/internal/repository"
 	"backend/internal/usecase"
 	"backend/internal/util"
@@ -36,11 +37,19 @@ func Bootstrap(config *BootstrapConfig) {
 	// Utilities
 	tokenUtil := util.NewTokenUtil(config.Config.GetString("JWT_SECRET"), config.Redis)
 
+	// WebSocket Hub and Handler
+	wsHub := websocket.NewHub(config.Log)
+	wsHandler := websocket.NewHandler(wsHub, tokenUtil, config.Log)
+	wsNotifier := websocket.NewNotifier(wsHub, config.Log)
+
 	// Use Cases
 	userUseCase := usecase.NewUserUseCase(config.DB, config.Log, config.Validator, userRepository, walletRepository, tokenUtil)
 	walletUseCase := usecase.NewWalletUseCase(config.DB, config.Log, config.Validator, walletRepository)
 	transactionUseCase := usecase.NewTransactionUseCase(config.DB, config.Log, config.Validator, transactionRepository, walletRepository, walletMutationRepository)
 	walletMutationUseCase := usecase.NewWalletMutationUseCase(config.DB, config.Log, config.Validator, walletMutationRepository, walletRepository)
+
+	// Set notifier for real-time notifications
+	transactionUseCase.SetNotifier(wsNotifier)
 
 	// Controllers
 	userController := http.NewUserController(config.Log, userUseCase)
@@ -57,6 +66,7 @@ func Bootstrap(config *BootstrapConfig) {
 		WalletController:         walletController,
 		TransactionController:    transactionController,
 		WalletMutationController: walletMutationController,
+		WebSocketHandler:         wsHandler,
 		AuthMiddleware:           authMiddleware,
 	}
 
