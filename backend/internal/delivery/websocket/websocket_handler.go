@@ -30,8 +30,12 @@ func (h *Handler) UpgradeMiddleware() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		// Check if this is a WebSocket upgrade request
 		if websocket.IsWebSocketUpgrade(c) {
-			// Get token from query parameter
+			// Get token from query parameter or cookie
 			token := c.Query("token")
+			if token == "" {
+				token = c.Cookies("jwt")
+			}
+
 			if token == "" {
 				h.Log.Warn("WebSocket connection attempt without token")
 				return fiber.ErrUnauthorized
