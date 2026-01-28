@@ -14,6 +14,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -22,8 +23,9 @@ func setupUserTestApp(mockUseCase *mocks.MockUserUseCase) *fiber.App {
 	app := fiber.New()
 	log := logrus.New()
 	log.SetOutput(io.Discard)
+	config := viper.New()
 
-	controller := httpDelivery.NewUserController(log, mockUseCase)
+	controller := httpDelivery.NewUserController(log, config, mockUseCase)
 
 	app.Post("/users/register", controller.Register)
 	app.Post("/users/login", controller.Login)
