@@ -8,6 +8,7 @@ const WS_URL = 'ws://localhost:3000/ws';
 let ws: WebSocket | null = null;
 let reconnectValid = true;
 let reconnectInterval = 5000;
+let beforeUnloadHandler: ((e: BeforeUnloadEvent) => void) | null = null;
 
 // Tipe payload dari backend
 interface WebsocketMessage {
@@ -33,6 +34,8 @@ interface TransactionPayload {
 
 export function connectWebSocket(token: string) {
     if (ws) {
+        ws.onclose = null;
+        ws.onerror = null;
         ws.close();
     }
 
@@ -41,6 +44,17 @@ export function connectWebSocket(token: string) {
     
     try {
         ws = new WebSocket(url);
+
+        // Handle page unload to prevent reconnection loops
+        beforeUnloadHandler = () => {
+            reconnectValid = false;
+            if (ws) {
+                ws.onclose = null;
+                ws.onerror = null;
+                ws.close();
+            }
+        };
+        window.addEventListener('beforeunload', beforeUnloadHandler);
 
         ws.onopen = () => {
             console.log('WebSocket connected');
@@ -55,8 +69,8 @@ export function connectWebSocket(token: string) {
             }
         };
 
-        ws.onclose = () => {
-            console.log('WebSocket disconnected');
+        ws.onclose = (event) => {
+            console.log(`WebSocket disconnected. Code: ${event.code}, Reason: ${event.reason || 'No reason'}`);
             if (reconnectValid) {
                 console.log('Reconnecting in 5s...');
                 setTimeout(() => {
@@ -77,7 +91,15 @@ export function connectWebSocket(token: string) {
 
 export function disconnectWebSocket() {
     reconnectValid = false;
+    
+    if (beforeUnloadHandler) {
+        window.removeEventListener('beforeunload', beforeUnloadHandler);
+        beforeUnloadHandler = null;
+    }
+
     if (ws) {
+        ws.onclose = null;
+        ws.onerror = null;
         ws.close();
         ws = null;
     }
