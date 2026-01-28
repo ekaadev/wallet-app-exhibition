@@ -10,19 +10,13 @@
 
 	// Load profile/wallet data saat mount
 	onMount(async () => {
-		// Redirect jika tidak terautentikasi
-		if (!$token) {
-			goto('/login');
-			return;
-		}
-
 		// Load profile dari API (termasuk wallet info)
 		const success = await loadProfile();
 		if (!success) {
 			// Jika gagal, kemungkinan token expired
 			walletError = 'Gagal memuat data wallet';
-			logout();
-			goto('/login');
+			walletError = 'Gagal memuat data wallet';
+			await logout();
 			return;
 		}
 

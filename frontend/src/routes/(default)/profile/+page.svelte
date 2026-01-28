@@ -6,12 +6,6 @@
 
     // Load profile saat mount
     onMount(async () => {
-        // Redirect jika tidak terautentikasi
-        if (!$token) {
-            goto('/login');
-            return;
-        }
-
         // Load profile dari API
         const success = await loadProfile();
         if (!success) {

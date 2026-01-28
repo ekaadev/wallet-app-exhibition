@@ -15,10 +15,6 @@
 
 	// Check auth saat mount
 	onMount(async () => {
-		if (!$token) {
-			goto('/login');
-			return;
-		}
 		// Load profile untuk mendapatkan data wallet terbaru
 		await loadProfile();
 	});
@@ -64,7 +60,7 @@
 		isLoading = true;
 
 		try {
-			const response = await transfer($token!, {
+			const response = await transfer({
 				to_user_id: userId,
 				amount: transferAmount,
 				description: note || undefined

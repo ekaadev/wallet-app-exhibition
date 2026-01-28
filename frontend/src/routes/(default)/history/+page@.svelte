@@ -12,13 +12,8 @@
 
 	// Load data saat mount
 	onMount(async () => {
-		if (!$token) {
-			goto('/login');
-			return;
-		}
-
 		try {
-			const response = await getWalletMutations($token, 1, 50); // Get 50 transaksi terakhir
+			const response = await getWalletMutations(1, 50); // Get 50 transaksi terakhir
 			if (response.data) {
 				mutations = response.data.mutations;
 			}
