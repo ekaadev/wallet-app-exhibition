@@ -15,7 +15,6 @@
 		if (!success) {
 			// Jika gagal, kemungkinan token expired
 			walletError = 'Gagal memuat data wallet';
-			walletError = 'Gagal memuat data wallet';
 			await logout();
 			return;
 		}
