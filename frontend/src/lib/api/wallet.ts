@@ -1,6 +1,6 @@
 // API functions untuk endpoint wallets dan wallet mutations
 
-import { apiAuthRequest, type ApiResponse } from './api';
+import { apiRequest, type ApiResponse } from './api';
 
 // Response types berdasarkan API spec
 export interface WalletMutationResponse {
@@ -22,14 +22,13 @@ export interface WalletMutationListResponse {
 }
 
 // Get daftar mutasi wallet
+// Get daftar mutasi wallet
 export async function getWalletMutations(
-    token: string,
     page: number = 1,
     limit: number = 20
 ): Promise<ApiResponse<WalletMutationListResponse>> {
-    return apiAuthRequest<WalletMutationListResponse>(
+    return apiRequest<WalletMutationListResponse>(
         `/wallet-mutations?page=${page}&limit=${limit}`,
-        token,
         { method: 'GET' }
     );
 }

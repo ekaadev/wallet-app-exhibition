@@ -1,6 +1,6 @@
 // API functions untuk endpoint transactions (transfer, topup, list)
 
-import { apiAuthRequest, type ApiResponse } from './api';
+import { apiRequest, type ApiResponse } from './api';
 
 // Response type untuk transaction
 export interface TransactionResponse {
@@ -39,10 +39,9 @@ export interface TransactionListResponse {
 
 // Transfer saldo ke user lain
 export async function transfer(
-    token: string, 
     request: TransferRequest
 ): Promise<ApiResponse<TransactionResponse>> {
-    return apiAuthRequest<TransactionResponse>('/transactions/transfer', token, {
+    return apiRequest<TransactionResponse>('/transactions/transfer', {
         method: 'POST',
         body: JSON.stringify(request),
     });
@@ -50,10 +49,9 @@ export async function transfer(
 
 // Top-up saldo ke user (super admin only)
 export async function topUp(
-    token: string, 
     request: TopUpRequest
 ): Promise<ApiResponse<TransactionResponse>> {
-    return apiAuthRequest<TransactionResponse>('/transactions/topup', token, {
+    return apiRequest<TransactionResponse>('/transactions/topup', {
         method: 'POST',
         body: JSON.stringify(request),
     });
@@ -61,13 +59,11 @@ export async function topUp(
 
 // Get list transactions dengan pagination
 export async function getTransactions(
-    token: string, 
     page: number = 1, 
     limit: number = 10
 ): Promise<ApiResponse<TransactionListResponse>> {
-    return apiAuthRequest<TransactionListResponse>(
+    return apiRequest<TransactionListResponse>(
         `/transactions?page=${page}&limit=${limit}`, 
-        token, 
         { method: 'GET' }
     );
 }
