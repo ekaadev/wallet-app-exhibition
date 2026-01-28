@@ -1,8 +1,10 @@
 // Auth store untuk state management autentikasi
 
-import { writable, derived, get } from 'svelte/store';
-import { login as apiLogin, register as apiRegister, getProfile, apiRequest, type UserResponse, type UserProfileResponse } from '$lib/api';
+import { writable, derived } from 'svelte/store';
+import { login as apiLogin, register as apiRegister, getProfile, apiRequest, type UserResponse } from '$lib/api';
 import { connectWebSocket, disconnectWebSocket } from '$lib/api/websocket';
+import { goto } from '$app/navigation';
+import { browser } from '$app/environment';
 
 // Stores
 export const token = writable<string | null>(null);
@@ -12,7 +14,6 @@ export const error = writable<string | null>(null);
 
 // Derived store untuk mengecek apakah user terautentikasi
 export const isAuthenticated = derived(user, ($user) => !!$user);
-
 
 // Action: Login
 export async function login(username: string, password: string): Promise<boolean> {
@@ -30,8 +31,10 @@ export async function login(username: string, password: string): Promise<boolean
                 username: userData.username,
             });
             
-            // Connect WebSocket setalah login berhasil
-            connectWebSocket();
+            // Connect WebSocket setelah login berhasil
+            if (browser) {
+                connectWebSocket();
+            }
             
             return true;
         }
@@ -63,7 +66,9 @@ export async function register(username: string, password: string): Promise<bool
             });
             
             // Connect WebSocket setelah register berhasil
-            connectWebSocket();
+            if (browser) {
+                connectWebSocket();
+            }
 
             return true;
         }
@@ -95,9 +100,10 @@ export async function loadProfile(): Promise<boolean> {
                 wallet: profile.wallet,
             });
 
-            // Connect WebSocket jika session exist
-            // Kita butuh trigger khusus untuk check cookie or just connect
-            connectWebSocket();
+            // Connect WebSocket jika belum terconnect
+            if (browser) {
+                connectWebSocket();
+            }
 
             return true;
         }
@@ -105,9 +111,8 @@ export async function loadProfile(): Promise<boolean> {
         error.set('Gagal memuat profil');
         return false;
     } catch (err) {
-        // Jika gagal, kemungkinan token expired
         error.set(err instanceof Error ? err.message : 'Gagal memuat profil');
-        user.set(null); // Clear user if failed implies invalid session
+        user.set(null);
         return false;
     } finally {
         loading.set(false);
@@ -132,13 +137,20 @@ export async function logout(): Promise<void> {
     } catch (e) {
         console.error('Logout error:', e);
     }
-    disconnectWebSocket(); // Disconnect WS
+    
+    // Disconnect WebSocket
+    if (browser) {
+        disconnectWebSocket();
+    }
+    
+    // Clear stores
     token.set(null);
     user.set(null);
     error.set(null);
-    // Force reload to clear any memory/state if needed, or just redirect
-    if (typeof window !== 'undefined') {
-        window.location.href = '/login';
+    
+    // Redirect to login
+    if (browser) {
+        goto('/login');
     }
 }
 

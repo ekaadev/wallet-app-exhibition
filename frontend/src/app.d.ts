@@ -3,7 +3,17 @@
 declare global {
 	namespace App {
 		// interface Error {}
-		// interface Locals {}
+		interface Locals {
+			user?: {
+				id: number;
+				username: string;
+				role: 'super_admin' | 'admin' | 'user';
+				wallet: {
+					id: number;
+					balance: string;
+				};
+			} | null;
+		}
 		// interface PageData {}
 		// interface PageState {}
 		// interface Platform {}

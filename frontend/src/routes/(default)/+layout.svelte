@@ -1,23 +1,29 @@
 <script lang="ts">
 	import NavMenu from '$lib/components/nav-menu.svelte';
-	import { user, token } from '$lib/stores/auth';
-	import { connectWebSocket } from '$lib/api/websocket';
+	import { user } from '$lib/stores/auth';
+	import { connectWebSocket, disconnectWebSocket } from '$lib/api/websocket';
 	import { browser } from '$app/environment';
+	import { onMount } from 'svelte';
 
 	let { children, data } = $props();
 
+	// Sync user data dari server ke client store
 	$effect(() => {
 		if (data.user) {
 			user.set(data.user);
-			// Also set token if it was available in cookies,
-			// though layout.server.ts reads it.
-			// Ideally we should pass token too if we want full store sync,
-			// but user object is what UI needs.
+		}
+	});
 
-			// Auto connect WS if user exists
-			if (browser) {
-				connectWebSocket();
-			}
+	// WebSocket connection management
+	onMount(() => {
+		if (browser && data.user) {
+			// Connect WebSocket saat component mount
+			connectWebSocket();
+
+			// Cleanup saat component unmount
+			return () => {
+				disconnectWebSocket();
+			};
 		}
 	});
 </script>
