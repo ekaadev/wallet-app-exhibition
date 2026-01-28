@@ -1,4 +1,4 @@
 .idea
 backend/.env
 RULES.md
-./main
+backend/main
