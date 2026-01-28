@@ -52,12 +52,15 @@ func Bootstrap(config *BootstrapConfig) {
 	transactionUseCase.SetNotifier(wsNotifier)
 
 	// Controllers
-	userController := http.NewUserController(config.Log, userUseCase)
+	userController := http.NewUserController(config.Log, config.Config, userUseCase)
 	walletController := http.NewWalletController(config.Log, walletUseCase)
 	transactionController := http.NewTransactionController(config.Log, transactionUseCase)
 	walletMutationController := http.NewWalletMutationController(config.Log, walletMutationUseCase)
 
 	// Middleware
+	app := config.App
+	app.Use(middleware.NewRateLimiter())
+
 	authMiddleware := middleware.NewAuth(userUseCase, tokenUtil)
 
 	routeConfig := route.ConfigRoute{
