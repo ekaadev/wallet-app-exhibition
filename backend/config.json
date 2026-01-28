@@ -6,6 +6,9 @@
     "prefork": false,
     "port": 3000
   },
+  "cookie": {
+    "secure": false
+  },
   "log": {
     "level": 7
   },

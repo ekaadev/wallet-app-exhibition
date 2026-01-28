@@ -25,7 +25,12 @@ func NewAuth(userUseCase *usecase.UserUseCase, tokenUtil *util.TokenUtil) fiber.
 			}
 		}
 
-		// 2. Jika di Header tidak ada, coba ambil dari Query Param "token" (untuk WebSocket)
+		// 2. Jika di Header tidak ada, coba ambil dari Cookies
+		if tokenString == "" {
+			tokenString = ctx.Cookies("jwt")
+		}
+
+		// 3. Jika di Cookies tidak ada, coba ambil dari Query Param "token" (untuk WebSocket)
 		if tokenString == "" {
 			tokenString = ctx.Query("token")
 		}

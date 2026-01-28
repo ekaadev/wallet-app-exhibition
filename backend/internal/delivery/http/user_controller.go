@@ -5,18 +5,23 @@ import (
 	"backend/internal/model"
 	"backend/internal/usecase"
 
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 type UserController struct {
 	Log         *logrus.Logger
+	Config      *viper.Viper
 	UserUseCase usecase.UserUseCaseInterface
 }
 
-func NewUserController(log *logrus.Logger, userUseCase usecase.UserUseCaseInterface) *UserController {
+func NewUserController(log *logrus.Logger, config *viper.Viper, userUseCase usecase.UserUseCaseInterface) *UserController {
 	return &UserController{
 		Log:         log,
+		Config:      config,
 		UserUseCase: userUseCase,
 	}
 }
@@ -35,6 +40,17 @@ func (uc *UserController) Register(ctx *fiber.Ctx) error {
 		uc.Log.Warnf("UserUseCase.Create error: %v", err)
 		return err
 	}
+
+	// Set cookie
+	ctx.Cookie(&fiber.Cookie{
+		Name:     "jwt",
+		Value:    response.Token,
+		Path:     "/",
+		Expires:  time.Now().Add(24 * time.Hour), // 1 day
+		HTTPOnly: true,
+		Secure:   uc.Config.GetBool("cookie.secure"),
+		SameSite: "Lax",
+	})
 
 	return ctx.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"data": response,
@@ -56,8 +72,36 @@ func (uc *UserController) Login(ctx *fiber.Ctx) error {
 		return err
 	}
 
+	// Set cookie
+	ctx.Cookie(&fiber.Cookie{
+		Name:     "jwt",
+		Value:    response.Token,
+		Path:     "/",
+		Expires:  time.Now().Add(24 * time.Hour), // 1 day
+		HTTPOnly: true,
+		Secure:   uc.Config.GetBool("cookie.secure"),
+		SameSite: "Lax",
+	})
+
 	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
 		"data": response,
+	})
+}
+
+func (uc *UserController) Logout(ctx *fiber.Ctx) error {
+	// Clear cookie
+	ctx.Cookie(&fiber.Cookie{
+		Name:     "jwt",
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Now().Add(-time.Hour),
+		HTTPOnly: true,
+		Secure:   uc.Config.GetBool("cookie.secure"),
+		SameSite: "Lax",
+	})
+
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Logout successful",
 	})
 }
 

@@ -42,6 +42,7 @@ func (cr *ConfigRoute) SetupAuthRoutes() {
 	auth := cr.App.Group("", cr.AuthMiddleware)
 
 	// User routes (authenticated)
+	auth.Post("/users/logout", cr.UserController.Logout)
 	auth.Get("/users/me", cr.UserController.GetProfile)
 
 	// Wallet routes
