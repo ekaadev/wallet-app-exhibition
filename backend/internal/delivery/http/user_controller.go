@@ -42,6 +42,16 @@ func (uc *UserController) Register(ctx *fiber.Ctx) error {
 	}
 
 	// Set cookie
+	// ctx.Cookie(&fiber.Cookie{
+	// 	Name:     "jwt",
+	// 	Value:    response.Token,
+	// 	Path:     "/",
+	// 	Expires:  time.Now().Add(24 * time.Hour), // 1 day
+	// 	HTTPOnly: true,
+	// 	Secure:   uc.Config.GetBool("cookie.secure"),
+	// 	SameSite: "None",
+	// })
+
 	ctx.Cookie(&fiber.Cookie{
 		Name:     "jwt",
 		Value:    response.Token,
@@ -49,7 +59,8 @@ func (uc *UserController) Register(ctx *fiber.Ctx) error {
 		Expires:  time.Now().Add(24 * time.Hour), // 1 day
 		HTTPOnly: true,
 		Secure:   uc.Config.GetBool("cookie.secure"),
-		SameSite: "None",
+		Domain:   uc.Config.GetString("DOMAIN"),
+		SameSite: "Lax",
 	})
 
 	return ctx.Status(fiber.StatusCreated).JSON(fiber.Map{
@@ -73,6 +84,16 @@ func (uc *UserController) Login(ctx *fiber.Ctx) error {
 	}
 
 	// Set cookie
+	// ctx.Cookie(&fiber.Cookie{
+	// 	Name:     "jwt",
+	// 	Value:    response.Token,
+	// 	Path:     "/",
+	// 	Expires:  time.Now().Add(24 * time.Hour), // 1 day
+	// 	HTTPOnly: true,
+	// 	Secure:   uc.Config.GetBool("cookie.secure"),
+	// 	SameSite: "None",
+	// })
+
 	ctx.Cookie(&fiber.Cookie{
 		Name:     "jwt",
 		Value:    response.Token,
@@ -80,7 +101,8 @@ func (uc *UserController) Login(ctx *fiber.Ctx) error {
 		Expires:  time.Now().Add(24 * time.Hour), // 1 day
 		HTTPOnly: true,
 		Secure:   uc.Config.GetBool("cookie.secure"),
-		SameSite: "None",
+		Domain:   uc.Config.GetString("DOMAIN"),
+		SameSite: "Lax",
 	})
 
 	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
@@ -90,6 +112,16 @@ func (uc *UserController) Login(ctx *fiber.Ctx) error {
 
 func (uc *UserController) Logout(ctx *fiber.Ctx) error {
 	// Clear cookie
+	// ctx.Cookie(&fiber.Cookie{
+	// 	Name:     "jwt",
+	// 	Value:    "",
+	// 	Path:     "/",
+	// 	Expires:  time.Now().Add(-time.Hour),
+	// 	HTTPOnly: true,
+	// 	Secure:   uc.Config.GetBool("cookie.secure"),
+	// 	SameSite: "None",
+	// })
+
 	ctx.Cookie(&fiber.Cookie{
 		Name:     "jwt",
 		Value:    "",
@@ -97,7 +129,8 @@ func (uc *UserController) Logout(ctx *fiber.Ctx) error {
 		Expires:  time.Now().Add(-time.Hour),
 		HTTPOnly: true,
 		Secure:   uc.Config.GetBool("cookie.secure"),
-		SameSite: "None",
+		Domain:   uc.Config.GetString("DOMAIN"),
+		SameSite: "Lax",
 	})
 
 	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
