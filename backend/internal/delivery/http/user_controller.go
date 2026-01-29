@@ -59,7 +59,6 @@ func (uc *UserController) Register(ctx *fiber.Ctx) error {
 		Expires:  time.Now().Add(24 * time.Hour), // 1 day
 		HTTPOnly: true,
 		Secure:   uc.Config.GetBool("cookie.secure"),
-		Domain:   uc.Config.GetString("DOMAIN"),
 		SameSite: "Lax",
 	})
 
@@ -101,7 +100,6 @@ func (uc *UserController) Login(ctx *fiber.Ctx) error {
 		Expires:  time.Now().Add(24 * time.Hour), // 1 day
 		HTTPOnly: true,
 		Secure:   uc.Config.GetBool("cookie.secure"),
-		Domain:   uc.Config.GetString("DOMAIN"),
 		SameSite: "Lax",
 	})
 
@@ -129,7 +127,6 @@ func (uc *UserController) Logout(ctx *fiber.Ctx) error {
 		Expires:  time.Now().Add(-time.Hour),
 		HTTPOnly: true,
 		Secure:   uc.Config.GetBool("cookie.secure"),
-		Domain:   uc.Config.GetString("DOMAIN"),
 		SameSite: "Lax",
 	})
 
