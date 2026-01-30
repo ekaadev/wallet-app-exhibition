@@ -13,6 +13,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const token = event.cookies.get('jwt');
 	const pathname = event.url.pathname;
 
+	// Always clear locals.user first
+	// This prevents caching old user data
+	event.locals.user = null;
+
 	// Check if route is protected
 	const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
 	const isAuthRoute = authRoutes.some(route => pathname.startsWith(route));
@@ -29,7 +33,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 			const res = await fetch(`${API_BASE_URL}/users/me`, {
 				headers: {
 					'Authorization': `Bearer ${token}`,
-					'Cookie': `jwt=${token}`
 				},
 				credentials: 'include'
 			});
@@ -42,6 +45,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 			if (error instanceof Response && error.status === 302) {
 				throw error;
 			}
+			// If API error, clear invalid cookie
+			event.cookies.delete('jwt', { path: '/' });
 		}
 	}
 
@@ -51,22 +56,34 @@ export const handle: Handle = async ({ event, resolve }) => {
 			const res = await fetch(`${API_BASE_URL}/users/me`, {
 				headers: {
 					'Authorization': `Bearer ${token}`,
-					'Cookie': `jwt=${token}`
 				},
 				credentials: 'include'
 			});
 
 			if (res.ok) {
 				const data = await res.json();
+				// Set fresh user data
 				event.locals.user = data.data;
 			} else {
-				// Invalid token, clear cookie
+				// Invalid token, clear cookie AND locals
 				event.cookies.delete('jwt', { path: '/' });
+				event.locals.user = null;
 			}
 		} catch (error) {
 			console.error('Error validating token:', error);
+			// On error, clear everything
+			event.cookies.delete('jwt', { path: '/' });
+			event.locals.user = null;
 		}
 	}
 
-	return resolve(event);
+	// Add cache control headers to prevent stale data
+	const response = await resolve(event);
+	
+	// Don't cache authenticated pages
+	if (isProtectedRoute) {
+		response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+	}
+	
+	return response;
 };

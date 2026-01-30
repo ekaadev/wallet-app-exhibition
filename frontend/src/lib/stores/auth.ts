@@ -3,7 +3,7 @@
 import { writable, derived } from 'svelte/store';
 import { login as apiLogin, register as apiRegister, getProfile, apiRequest, type UserResponse } from '$lib/api';
 import { connectWebSocket, disconnectWebSocket } from '$lib/api/websocket';
-import { goto } from '$app/navigation';
+import { goto, invalidateAll } from '$app/navigation';
 import { browser } from '$app/environment';
 
 // Stores
@@ -30,6 +30,12 @@ export async function login(username: string, password: string): Promise<boolean
                 id: userData.id,
                 username: userData.username,
             });
+            
+            // Invalidate all cached data
+            // This forces SvelteKit to reload all server data (including locals.user)
+            if (browser) {
+                await invalidateAll();
+            }
             
             // Connect WebSocket setelah login berhasil
             if (browser) {
@@ -64,6 +70,11 @@ export async function register(username: string, password: string): Promise<bool
                 id: userData.id,
                 username: userData.username,
             });
+            
+            // Invalidate all cached data
+            if (browser) {
+                await invalidateAll();
+            }
             
             // Connect WebSocket setelah register berhasil
             if (browser) {
@@ -147,6 +158,11 @@ export async function logout(): Promise<void> {
     token.set(null);
     user.set(null);
     error.set(null);
+    
+    // This clears locals.user from hooks.server.ts
+    if (browser) {
+        await invalidateAll();
+    }
     
     // Redirect to login
     if (browser) {

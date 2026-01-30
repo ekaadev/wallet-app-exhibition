@@ -12,9 +12,10 @@
 		token
 	} from '$lib/stores/auth';
 
-	// Load profile saat mount
+	// FORCE reload profile setiap kali page mount
+	// Jangan rely pada cached data dari layout
 	onMount(async () => {
-		// Load profile dari API
+		// Always load fresh profile from API
 		const success = await loadProfile();
 		if (!success) {
 			// Jika gagal load profile, kemungkinan token expired
@@ -40,8 +41,8 @@
 	}
 
 	// Handle logout
-	function handleLogout() {
-		logout();
+	async function handleLogout() {
+		await logout();
 		goto('/login');
 	}
 
