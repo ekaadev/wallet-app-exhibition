@@ -135,11 +135,24 @@ func (uc *UserController) Logout(ctx *fiber.Ctx) error {
 		Name:     "jwt",
 		Value:    "",
 		Path:     "/",
+		MaxAge:   -1,
 		Expires:  time.Now().Add(-time.Hour),
 		HTTPOnly: true,
 		Secure:   uc.Config.GetBool("cookie.secure"),
 		Domain:   uc.Config.GetString("DOMAIN"),
 		SameSite: "Lax",
+	})
+
+	ctx.Cookie(&fiber.Cookie{
+		Name:     "jwt",
+		Value:    "deleted",
+		MaxAge:   0,
+		Expires:  time.Unix(0, 0),
+		HTTPOnly: true,
+		Secure:   uc.Config.GetBool("cookie.secure"),
+		Domain:   uc.Config.GetString("DOMAIN"),
+		SameSite: "Lax",
+		Path:     "/",
 	})
 
 	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
