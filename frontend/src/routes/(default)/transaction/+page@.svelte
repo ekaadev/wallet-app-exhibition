@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
 	import { ArrowLeft, Send } from 'lucide-svelte';
 	import { token, user, loadProfile } from '$lib/stores/auth';
 	import { transfer } from '$lib/api';
@@ -13,10 +14,23 @@
 	let errorMessage = $state('');
 	let successMessage = $state('');
 
-	// Check auth saat mount
+	// Check auth saat mount dan baca URL params
 	onMount(async () => {
 		// Load profile untuk mendapatkan data wallet terbaru
 		await loadProfile();
+
+		// Baca URL params dari scan QR
+		const urlParams = $page.url.searchParams;
+		const userIdParam = urlParams.get('userId');
+		const amountParam = urlParams.get('amount');
+
+		// Pre-fill form jika ada params
+		if (userIdParam) {
+			recipientId = userIdParam;
+		}
+		if (amountParam) {
+			amount = amountParam;
+		}
 	});
 
 	// Fungsi format rupiah untuk display

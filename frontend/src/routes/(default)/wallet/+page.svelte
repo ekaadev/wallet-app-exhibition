@@ -1,12 +1,18 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { History, Banknote, Scan } from 'lucide-svelte';
+	import { History, Banknote, Scan, QrCode } from 'lucide-svelte';
 	import { user, token, loadProfile, logout } from '$lib/stores/auth';
+	import QRCodeModal from '$lib/components/QRCodeModal.svelte';
+	import ScanQRModal from '$lib/components/ScanQRModal.svelte';
 
 	// State untuk wallet data
 	let loading = $state(true);
 	let walletError = $state('');
+
+	// State untuk modal
+	let showQRModal = $state(false);
+	let showScanModal = $state(false);
 
 	// Load profile/wallet data saat mount
 	// Load profile/wallet data saat mount
@@ -27,8 +33,14 @@
 		goto('/transaction');
 	}
 
+	// Buka modal scan QR
 	function handleScan() {
-		console.log('Buka Kamera untuk Scan QRIS');
+		showScanModal = true;
+	}
+
+	// Buka modal QR Code saya
+	function handleShowQR() {
+		showQRModal = true;
 	}
 </script>
 
@@ -45,6 +57,9 @@
 		<header class="header">
 			<h1>Wallet</h1>
 			<div class="actions">
+				<button class="icon-btn" aria-label="QR Saya" onclick={handleShowQR}>
+					<QrCode size={24} />
+				</button>
 				<a href="/history">
 					<button class="icon-btn" aria-label="Riwayat"><History size={24} /></button>
 				</a>
@@ -93,6 +108,12 @@
 		</div>
 	{/if}
 </div>
+
+<!-- Modal untuk QR Code saya -->
+<QRCodeModal bind:show={showQRModal} />
+
+<!-- Modal untuk Scan QR -->
+<ScanQRModal bind:show={showScanModal} />
 
 <style>
 	:global(body) {
