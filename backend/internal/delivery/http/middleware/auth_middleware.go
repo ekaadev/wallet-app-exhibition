@@ -27,7 +27,7 @@ func NewAuth(userUseCase *usecase.UserUseCase, tokenUtil *util.TokenUtil) fiber.
 
 		// 2. Jika di Header tidak ada, coba ambil dari Cookies
 		if tokenString == "" {
-			tokenString = ctx.Cookies("jwt")
+			tokenString = getLastCookie(ctx, "jwt")
 		}
 
 		// 3. Jika di Cookies tidak ada, coba ambil dari Query Param "token" (untuk WebSocket)
@@ -55,4 +55,17 @@ func NewAuth(userUseCase *usecase.UserUseCase, tokenUtil *util.TokenUtil) fiber.
 
 func GetUser(ctx *fiber.Ctx) *model.Auth {
 	return ctx.Locals("auth").(*model.Auth)
+}
+
+func getLastCookie(c *fiber.Ctx, name string) string {
+	cookieHeader := c.Get("Cookie")
+	var lastValue string
+
+	for _, cookie := range strings.Split(cookieHeader, ";") {
+		parts := strings.SplitN(strings.TrimSpace(cookie), "=", 2)
+		if len(parts) == 2 && parts[0] == name {
+			lastValue = parts[1] // Keep updating = get LAST one
+		}
+	}
+	return lastValue
 }
