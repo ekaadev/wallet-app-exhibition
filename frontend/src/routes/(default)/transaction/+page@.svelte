@@ -29,7 +29,7 @@
 			recipientId = userIdParam;
 		}
 		if (amountParam) {
-			amount = amountParam;
+			amount = formatRupiahInput(amountParam);
 		}
 	});
 
@@ -39,13 +39,37 @@
 		return new Intl.NumberFormat('id-ID').format(Number(value));
 	}
 
+	function formatRupiahInput(value: string): string {
+		const numberString = value.replace(/[^,\d]/g, '').toString();
+		const split = numberString.split(',');
+		let sisa = split[0].length % 3;
+		let rupiah = split[0].substr(0, sisa);
+		const ribuan = split[0].substr(sisa).match(/\d{3}/gi);
+
+		if (ribuan) {
+			const separator = sisa ? '.' : '';
+			rupiah += separator + ribuan.join('.');
+		}
+
+		rupiah = split[1] != undefined ? rupiah + ',' + split[1] : rupiah;
+		return rupiah;
+	}
+
+	function handleAmountInput(e: Event) {
+		const target = e.target as HTMLInputElement;
+		amount = formatRupiahInput(target.value);
+	}
+
 	// Handle submit transfer
 	async function handleSend() {
 		errorMessage = '';
 		successMessage = '';
 
+		// Parse amount dari format rupiah (hapus titik)
+		const cleanAmount = amount.replace(/\./g, '');
+
 		// Validasi input
-		if (!recipientId || !amount) {
+		if (!recipientId || !cleanAmount) {
 			errorMessage = 'Mohon isi ID penerima dan jumlah transfer';
 			return;
 		}
@@ -56,7 +80,7 @@
 			return;
 		}
 
-		const transferAmount = parseFloat(amount);
+		const transferAmount = parseFloat(cleanAmount);
 		if (isNaN(transferAmount) || transferAmount <= 0) {
 			errorMessage = 'Jumlah transfer harus lebih dari 0';
 			return;
@@ -81,7 +105,7 @@
 			});
 
 			if (response.data) {
-				successMessage = `Berhasil kirim Rp${formatRupiah(amount)} ke User ID ${recipientId}`;
+				successMessage = `Berhasil kirim Rp${formatRupiah(cleanAmount)} ke User ID ${recipientId}`;
 				// Reset form
 				recipientId = '';
 				amount = '';
@@ -144,10 +168,12 @@
 				<span class="currency">Rp</span>
 				<input
 					id="amount"
-					type="number"
+					type="text"
+					inputmode="numeric"
 					class="row-input amount-input"
 					placeholder="0"
-					bind:value={amount}
+					value={amount}
+					oninput={handleAmountInput}
 					disabled={isLoading}
 				/>
 			</div>
@@ -327,11 +353,7 @@
 		color: #007aff;
 	}
 
-	input[type='number']::-webkit-inner-spin-button,
-	input[type='number']::-webkit-outer-spin-button {
-		-webkit-appearance: none;
-		margin: 0;
-	}
+	/* input[type='number'] removed */
 
 	.fixed-footer {
 		position: fixed;

@@ -20,6 +20,29 @@
 		}
 	});
 
+	// Helper format rupiah input
+	function formatRupiahInput(value: string): string {
+		const numberString = value.replace(/[^,\d]/g, '').toString();
+		const split = numberString.split(',');
+		let sisa = split[0].length % 3;
+		let rupiah = split[0].substr(0, sisa);
+		const ribuan = split[0].substr(sisa).match(/\d{3}/gi);
+
+		if (ribuan) {
+			const separator = sisa ? '.' : '';
+			rupiah += separator + ribuan.join('.');
+		}
+
+		rupiah = split[1] != undefined ? rupiah + ',' + split[1] : rupiah;
+		return rupiah;
+	}
+
+	function handleAmountInput(e: Event) {
+		const target = e.target as HTMLInputElement;
+		amount = formatRupiahInput(target.value);
+		generateQR();
+	}
+
 	// Generate QR Code dengan data user
 	async function generateQR() {
 		if (!qrCanvas || !$user) return;
@@ -27,10 +50,13 @@
 		qrError = '';
 
 		try {
+			// Clean amount (remove dots)
+			const cleanAmount = amount ? amount.replace(/\./g, '') : '';
+
 			// Data untuk QR Code berisi userId dan amount (jika ada)
 			const qrData = {
 				userId: $user.id,
-				amount: amount ? parseFloat(amount) : null
+				amount: cleanAmount ? parseFloat(cleanAmount) : null
 			};
 
 			await QRCode.toCanvas(qrCanvas, JSON.stringify(qrData), {
@@ -109,10 +135,11 @@
 					<span class="currency">Rp</span>
 					<input
 						id="qr-amount"
-						type="number"
+						type="text"
+						inputmode="numeric"
 						placeholder="0"
-						bind:value={amount}
-						oninput={generateQR}
+						value={amount}
+						oninput={handleAmountInput}
 					/>
 				</div>
 				<p class="hint">Kosongkan jika ingin penerima memasukkan jumlah sendiri</p>
@@ -251,11 +278,7 @@
 		color: #c7c7cc;
 	}
 
-	input[type='number']::-webkit-inner-spin-button,
-	input[type='number']::-webkit-outer-spin-button {
-		-webkit-appearance: none;
-		margin: 0;
-	}
+	/* input[type='number'] removed */
 
 	.hint {
 		font-size: 0.8rem;
