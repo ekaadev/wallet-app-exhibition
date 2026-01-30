@@ -123,6 +123,15 @@ func (uc *UserController) Logout(ctx *fiber.Ctx) error {
 	// })
 
 	ctx.Cookie(&fiber.Cookie{
+		Name:   "jwt",
+		Value:  "",
+		Path:   "/",
+		MaxAge: -1,
+	})
+
+	ctx.ClearCookie("jwt")
+
+	ctx.Cookie(&fiber.Cookie{
 		Name:     "jwt",
 		Value:    "",
 		Path:     "/",
